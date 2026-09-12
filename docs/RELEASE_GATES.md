@@ -21,17 +21,20 @@ Every gate reports exactly one of:
 
 No gate is ever reported as `PASS` when it did not actually run, and no gate is ever silently omitted from a report.
 
-## Current gate status (Phase 0)
+## Current gate status (Phase 2)
 
-| Gate                                 | Status at Phase 0                                 | Why                                                                |
-| ------------------------------------ | ------------------------------------------------- | ------------------------------------------------------------------ |
-| Lint                                 | Runs for real against actual tooling config files | See Foundation Gate 0 report for exact output                      |
-| Typecheck                            | Runs for real against actual `.ts` tooling files  | See Foundation Gate 0 report for exact output                      |
-| Unit tests                           | NOT APPLICABLE                                    | No `packages/*`/`apps/*` workspace exists yet                      |
-| Integration tests                    | NOT APPLICABLE                                    | No workspace declares this gate; no DB/service boundary exists yet |
-| E2E tests                            | NOT APPLICABLE                                    | No dashboard/browser-facing app exists yet                         |
-| Security checks (CodeQL, Dependabot) | CONFIGURED BUT NOT YET VERIFIED                   | Repository has no remote / has not been pushed to GitHub           |
-| Build                                | NOT APPLICABLE                                    | No buildable workspace exists yet                                  |
+| Gate                                 | Status at Phase 2                                                       | Why                                                                                                                                                                                                                       |
+| ------------------------------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lint                                 | PASS                                                                    | Single root ESLint config now covers repo tooling + all 6 workspaces (`apps/*`, `packages/*`)                                                                                                                             |
+| Typecheck                            | PASS                                                                    | Root tooling + all 6 workspaces, each with strict TS against its own tsconfig                                                                                                                                             |
+| Unit tests                           | PASS                                                                    | Real tests in `packages/config`, `packages/db`, `packages/logger`, `apps/api`, `apps/worker`                                                                                                                              |
+| Integration tests                    | PASS (gate) / **CONFIGURED BUT NOT VERIFIED** (the actual DB assertion) | `packages/db` + `apps/api` declare this gate and run for real; the MySQL assertion itself skips honestly when no DB is reachable locally — see `docs/DEVELOPMENT.md`. CI runs it against a real MySQL 8 service container |
+| E2E tests                            | NOT APPLICABLE                                                          | `apps/web` is a static foundation shell with no user flow yet — no workspace declares this gate                                                                                                                           |
+| Security checks (CodeQL, Dependabot) | CONFIGURED BUT NOT YET VERIFIED                                         | Repository has no remote / has not been pushed to GitHub                                                                                                                                                                  |
+| Dependency audit (`pnpm audit`)      | PASS at `--audit-level=high`                                            | One MODERATE transitive finding (drizzle-kit's deprecated esbuild-kit chain) — reported, not blocking                                                                                                                     |
+| Build                                | PASS                                                                    | All 6 workspaces build for real, including `next build` for `apps/web`                                                                                                                                                    |
+
+**Read the Integration tests row carefully — this is the exact "gate exit code vs. honest status" distinction this document exists to prevent blurring.** The gate _script_ reports PASS because the test process exited 0; the underlying MySQL connectivity assertion itself did not run (no reachable database in this environment) and is honestly `CONFIGURED BUT NOT VERIFIED`, not a verified pass. Never collapse these two into one "PASS" when reporting status — see the Gate 2 Implementation Foundation report for the exact wording used.
 
 ## The transition condition — when NOT APPLICABLE must become a real gate `[LOCKED — mechanism]`
 

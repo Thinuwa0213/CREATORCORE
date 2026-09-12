@@ -1,0 +1,30 @@
+{
+  "name": "@creatorcore/worker",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "CreatorCore Discord worker process foundation (docs/adr/0005-discord-runtime.md) — lifecycle/signal handling and config boundary only, no Discord Gateway connection yet.",
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/index.js",
+    "test": "vitest run"
+  },
+  "creatorcore": {
+    "testGates": {
+      "unit": true,
+      "integration": false,
+      "e2e": false
+    }
+  },
+  "dependencies": {
+    "@creatorcore/config": "workspace:*",
+    "@creatorcore/logger": "workspace:*",
+    "discord.js": "^14.27.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
+}

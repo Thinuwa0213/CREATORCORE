@@ -68,11 +68,15 @@ for (const ws of declaring) {
     continue;
   }
   console.log(`${label} TESTS: running "${scriptName}" in ${ws.name}...`);
-  const result = spawnSync("pnpm", ["run", scriptName], {
-    cwd: ws.dir,
-    stdio: "inherit",
-    shell: process.platform === "win32",
-  });
+  // On Windows, pnpm resolves to pnpm.cmd, which requires shell:true to
+  // execute. Node warns (DEP0190) against combining shell:true with an args
+  // array since arguments aren't escaped — avoided here by passing one
+  // pre-built command string instead. scriptName only ever comes from the
+  // fixed SCRIPT_NAME map above, never from untrusted input.
+  const result =
+    process.platform === "win32"
+      ? spawnSync(`pnpm run ${scriptName}`, { cwd: ws.dir, stdio: "inherit", shell: true })
+      : spawnSync("pnpm", ["run", scriptName], { cwd: ws.dir, stdio: "inherit" });
   if (result.status !== 0) {
     console.error(`${label} TESTS: FAIL — ${ws.name} exited with code ${result.status}.`);
     failed = true;

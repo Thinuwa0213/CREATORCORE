@@ -25,7 +25,7 @@ Concrete session/cookie rules:
 
 - **Read-only / non-destructive authorization decisions** (e.g., which guilds to list, whether to show a settings page) may be cached for **at most 5 minutes**.
 - **Destructive, credential-related, ownership-related, or otherwise security-sensitive actions** (credential changes, module enable/disable, member/role changes, tenant disablement, bot connect/disconnect) **MUST synchronously re-verify** the caller's current TenantMembership/authorization state at the moment of the action — never read from the cache.
-- **Cached UI state must never itself grant a privileged operation.** The cache may decide what to *show*; it never substitutes for the synchronous check an action actually performs server-side.
+- **Cached UI state must never itself grant a privileged operation.** The cache may decide what to _show_; it never substitutes for the synchronous check an action actually performs server-side.
 
 ## Alternatives Considered
 

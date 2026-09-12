@@ -13,19 +13,37 @@ Four distinct environments, kept strictly separate:
 
 No environment shares credentials with another. `.env.example` documents variable _names_ only; actual values are never committed.
 
-## Setup (Phase 0 state)
+## Setup (Phase 2 state)
 
 ```bash
 pnpm install
-pnpm lint
-pnpm typecheck
-pnpm test            # currently NOT APPLICABLE — no product code yet
-pnpm test:integration
-pnpm test:e2e
-pnpm build
+pnpm lint             # real — single root ESLint config covers every workspace
+pnpm typecheck        # real — root tooling, then turbo fans out per workspace
+pnpm test             # real unit tests in packages/config, packages/db, packages/logger, apps/api, apps/worker
+pnpm test:integration # real MySQL 8.x test in packages/db + apps/api — skips honestly if no DB is reachable (see below)
+pnpm test:e2e         # NOT APPLICABLE — no dashboard user flow exists yet
+pnpm build            # real — builds all six workspaces, including `next build` for apps/web
+pnpm audit            # dependency vulnerability check (--audit-level=high; report anything lower honestly too)
 ```
 
-There is no application to run yet. Once Phase 1 adds `apps/*`, this section will be updated with real run instructions per app.
+### Running the apps locally
+
+```bash
+# apps/web — dashboard UI/BFF shell
+pnpm --filter @creatorcore/web dev        # http://localhost:3000
+
+# apps/api — platform backend (health/ready only in Phase 2)
+pnpm --filter @creatorcore/api build && pnpm --filter @creatorcore/api start   # http://localhost:8787/health, /ready
+
+# apps/worker — Discord worker process foundation (no Gateway connection yet)
+pnpm --filter @creatorcore/worker build && pnpm --filter @creatorcore/worker start
+```
+
+`apps/api` needs `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USER`/`DB_PASSWORD` set (see `.env.example`) to start — it fails fast with a safe error if they're missing or malformed, per `packages/config`'s rules. `apps/web` and `apps/worker` need no database configuration at all; they structurally cannot hold DB credentials since their package.json dependencies never include `@creatorcore/db`.
+
+### MySQL for local integration testing
+
+`pnpm test:integration` requires a real MySQL 8.0+ instance reachable via the `DB_*` variables — no SQLite substitution (`docs/DATABASE_RULES.md`). If none is reachable, the integration tests **skip visibly** (reported as `CONFIGURED BUT NOT VERIFIED`, never a faked pass) rather than failing silently or lying about coverage. A local MySQL 8 container (e.g. `docker run -e MYSQL_ROOT_PASSWORD=... -e MYSQL_DATABASE=creatorcore -p 3306:3306 mysql:8`) is one way to get a real instance; CI runs one automatically via a GitHub Actions service container.
 
 ## Git workflow `[PROPOSED]`
 

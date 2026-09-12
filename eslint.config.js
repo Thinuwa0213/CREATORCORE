@@ -5,12 +5,16 @@ import eslintConfigPrettier from "eslint-config-prettier";
 import globals from "globals";
 
 /**
- * Root ESLint config for the CreatorCore foundation.
+ * Root ESLint config for the whole CreatorCore monorepo.
  *
- * Phase 0 scope: lints the repository's own tooling/config files
- * (this file, playwright.config.ts, scripts/**). Future packages/apps under
- * packages/* and apps/* should extend this config rather than inventing
- * their own lint rules, per docs/ARCHITECTURE.md.
+ * Phase 2: this is the single lint config for repo tooling files AND every
+ * workspace under packages/* and apps/*, per docs/ARCHITECTURE.md's rule
+ * against duplicated/inconsistent per-workspace tooling. Each workspace's
+ * own "lint" script points back at this file explicitly
+ * (`eslint . --config ../../eslint.config.js`) rather than maintaining a
+ * local eslint.config.js. `projectService` auto-discovers the nearest
+ * tsconfig.json for each linted file, so one config works across every
+ * workspace's own tsconfig without listing each path here.
  */
 export default tseslint.config(
   {
@@ -21,24 +25,29 @@ export default tseslint.config(
       "**/dist/**",
       "build/**",
       "**/build/**",
+      "**/.next/**",
       ".turbo/**",
       "coverage/**",
       "playwright-report/**",
       "test-results/**",
-      "packages/**",
-      "apps/**",
     ],
   },
   js.configs.recommended,
   {
-    files: ["**/*.ts"],
+    files: ["**/*.ts", "**/*.tsx"],
     extends: [...tseslint.configs.strict, ...tseslint.configs.stylistic],
     languageOptions: {
       parserOptions: {
-        project: "./tsconfig.json",
+        projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
       globals: globals.node,
+    },
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", destructuredArrayIgnorePattern: "^_" },
+      ],
     },
   },
   {

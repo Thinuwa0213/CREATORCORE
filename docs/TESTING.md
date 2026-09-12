@@ -90,6 +90,10 @@ Each of these must have an actual test asserting the _rejection_, not just a cod
 
 Official Playwright tooling for test planning, generation, healing, and visual regression may be adopted once the dashboard exists and there's real UI to point it at. No such tooling is installed in Phase 0 — installing it now would have nothing to operate on. Evaluate official, actively maintained options at that time rather than adopting speculative third-party agent packages now.
 
-## What Phase 0 has actually established
+## What Phase 0 established
 
-The Vitest and Playwright dependencies, the root `playwright.config.ts`, the honest per-workspace gate scripts, and this document. No test files, no fixtures, no seed data, no CI execution of a real test suite (there's nothing to execute yet — see the Foundation Gate 0 report for exact `pnpm test*` output).
+The Vitest and Playwright dependencies, the root `playwright.config.ts`, the honest per-workspace gate scripts, and this document.
+
+## Phase 2 status (2026-09-12)
+
+Real unit tests now exist and pass in `packages/config`, `packages/db`, `packages/logger`, `apps/api`, and `apps/worker` (`docs/RELEASE_GATES.md`'s Phase 2 status table has exact counts). A real MySQL 8.x integration test exists in `packages/db` and `apps/api` — it connects, runs `SELECT 1`, and asserts the response; **it skips visibly rather than faking a pass when no MySQL instance is reachable** (no local Docker in this environment — see `docs/DEVELOPMENT.md`). CI now runs this against a real MySQL 8 service container. `apps/web` declares no test gates yet — a static foundation shell has no meaningful unit logic and no user flow for E2E; both become required once real logic/flows exist, per the `creatorcore.testGates` contract above.

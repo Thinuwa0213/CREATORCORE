@@ -1,9 +1,9 @@
 name: CI
 
-# Gate order per docs/RELEASE_GATES.md: Lint -> Typecheck -> Unit -> Integration -> E2E -> Build.
+# Gate order per docs/RELEASE_GATES.md: Lint -> Typecheck -> Unit -> Integration -> E2E -> Security Checks -> Build.
 # Every job runs a real command; none is a placeholder that always succeeds.
-# "Security Checks" in the documented gate order is handled by the separate
-# codeql.yml workflow, not duplicated here.
+# "Security Checks" covers both dependency-audit (this file) and CodeQL/Dependabot
+# (the separate codeql.yml workflow) — not duplicated, two different layers.
 
 on:
   pull_request:
@@ -55,10 +55,32 @@ jobs:
   integration-tests:
     needs: [unit-tests]
     runs-on: ubuntu-latest
-    # NOT APPLICABLE until a workspace declares creatorcore.testGates.integration = true
-    # (see docs/TESTING.md). When that happens, this job should be extended
-    # with a real MySQL 8.0+ service container — never SQLite — per
-    # docs/DATABASE_RULES.md.
+    # Real MySQL 8.0+ service container — never SQLite (docs/DATABASE_RULES.md).
+    # packages/db and apps/api declare creatorcore.testGates.integration = true
+    # and connect to this service via the DB_* vars below.
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: creatorcore_test
+          MYSQL_USER: creatorcore
+          MYSQL_PASSWORD: creatorcore_test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      # CI-only, disposable test credentials — never shared with staging/production
+      # (docs/DEVELOPMENT.md's environment-separation rule).
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_NAME: creatorcore_test
+      DB_USER: creatorcore
+      DB_PASSWORD: creatorcore_test_password
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -85,7 +107,7 @@ jobs:
       - run: pnpm test:e2e
 
   build:
-    needs: [integration-tests, e2e-tests]
+    needs: [integration-tests, e2e-tests, dependency-audit]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -96,3 +118,19 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    # Complements (does not replace) CodeQL/Dependabot in codeql.yml — this
+    # catches known-vulnerable versions already in the lockfile at PR time.
+    # Fails CI only on high/critical; lower-severity findings are visible in
+    # the log but don't block (docs/RELEASE_GATES.md's gate-order principle).
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level=high

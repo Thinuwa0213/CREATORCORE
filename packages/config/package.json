@@ -1,0 +1,39 @@
+{
+  "name": "@creatorcore/config",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Typed, runtime-scoped environment configuration for CreatorCore (docs/ARCHITECTURE.md section 8 of the Gate 2 plan). A workspace loads only the config shape it needs.",
+  "license": "UNLICENSED",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./database": {
+      "types": "./dist/database.d.ts",
+      "default": "./dist/database.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "creatorcore": {
+    "testGates": {
+      "unit": true,
+      "integration": false,
+      "e2e": false
+    }
+  },
+  "dependencies": {
+    "zod": "^4.6.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
+}

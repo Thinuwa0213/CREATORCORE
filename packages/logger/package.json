@@ -1,0 +1,26 @@
+{
+  "name": "@creatorcore/logger",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Structured logging with mandatory secret redaction, shared by apps/api and apps/worker (docs/adr/0010-observability-audit.md).",
+  "license": "UNLICENSED",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "creatorcore": {
+    "testGates": {
+      "unit": true,
+      "integration": false,
+      "e2e": false
+    }
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
+}

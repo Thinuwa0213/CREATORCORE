@@ -1,0 +1,33 @@
+{
+  "name": "@creatorcore/api",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "CreatorCore platform backend foundation (docs/adr/0002-backend-api-architecture.md) — health/ready endpoints only, no product CRUD yet.",
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/index.js",
+    "test": "vitest run src",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
+  },
+  "creatorcore": {
+    "testGates": {
+      "unit": true,
+      "integration": true,
+      "e2e": false
+    }
+  },
+  "dependencies": {
+    "@creatorcore/config": "workspace:*",
+    "@creatorcore/db": "workspace:*",
+    "@creatorcore/logger": "workspace:*",
+    "@hono/node-server": "^2.1.1",
+    "hono": "^4.13.7"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "@creatorcore/db",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Controlled MySQL/Drizzle data-access boundary for apps/api (docs/adr/0004-orm-data-layer.md). No product schema yet — connection, readiness, and migration-tooling foundation only.",
+  "license": "UNLICENSED",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run src",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "creatorcore": {
+    "testGates": {
+      "unit": true,
+      "integration": true,
+      "e2e": false
+    }
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.2",
+    "mysql2": "^3.24.4"
+  },
+  "devDependencies": {
+    "@creatorcore/config": "workspace:*",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
+}

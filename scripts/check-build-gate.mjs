@@ -32,11 +32,12 @@ if (buildable.length === 0) {
 let failed = false;
 for (const ws of buildable) {
   console.log(`BUILD: running "build" in ${ws.name}...`);
-  const result = spawnSync("pnpm", ["run", "build"], {
-    cwd: ws.dir,
-    stdio: "inherit",
-    shell: process.platform === "win32",
-  });
+  // See scripts/check-test-gate.mjs for why shell:true uses a single command
+  // string on Windows instead of an args array (Node DEP0190).
+  const result =
+    process.platform === "win32"
+      ? spawnSync("pnpm run build", { cwd: ws.dir, stdio: "inherit", shell: true })
+      : spawnSync("pnpm", ["run", "build"], { cwd: ws.dir, stdio: "inherit" });
   if (result.status !== 0) {
     console.error(`BUILD: FAIL — ${ws.name} exited with code ${result.status}.`);
     failed = true;

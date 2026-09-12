@@ -53,7 +53,7 @@ The items below are approved and binding, each recorded as an ADR under `docs/ad
 - **API framework** — [ADR-0002](adr/0002-backend-api-architecture.md): Hono, as a separate `apps/api` service (hybrid backend architecture). `apps/api` owns authoritative control-plane business rules, authorization, configuration APIs, credential-management orchestration, and audit operations — this logic must never be duplicated independently inside `apps/web`. `LOCKED`.
 - **Dashboard framework** — [ADR-0001](adr/0001-dashboard-framework.md): Next.js (App Router), used as a UI/BFF layer only — `apps/web` is not the system of record for privileged platform state. `LOCKED`.
 - **Authentication system** — [ADR-0003](adr/0003-authentication-sessions.md), `[SECURITY-SENSITIVE — NEEDS REVIEW]`: Better Auth, running inside `apps/api`, Discord OAuth2 provider, server-side revocable sessions. `LOCKED WITH POLICY`: read-only/non-destructive authorization decisions may be cached for at most 5 minutes; destructive/credential/ownership/security-sensitive actions always re-verify synchronously; cached UI state never grants a privileged operation.
-- **Discord bot runtime** — [ADR-0005](adr/0005-discord-runtime.md): discord.js, one worker process holding multiple `Client` instances (one per customer bot application) for Phase 1, running ≥2 replicas from day one (ADR-0008) for availability. The `WorkerAssignment` claim mechanism (ADR-0006) that decides which replica currently owns which `BotApplication` is a live Gate 1 requirement, not deferred — what remains a genuinely future migration is scaling *beyond* that HA baseline to many more worker processes purely for capacity, without changing the feature-module model. Least-privilege Gateway Intents are required — modules must not request privileged Discord data access merely for convenience, and a future module registry must make each module's required permissions/intents explicit. `LOCKED`. See `docs/DISCORD_RULES.md` for constraints that apply regardless.
+- **Discord bot runtime** — [ADR-0005](adr/0005-discord-runtime.md): discord.js, one worker process holding multiple `Client` instances (one per customer bot application) for Phase 1, running ≥2 replicas from day one (ADR-0008) for availability. The `WorkerAssignment` claim mechanism (ADR-0006) that decides which replica currently owns which `BotApplication` is a live Gate 1 requirement, not deferred — what remains a genuinely future migration is scaling _beyond_ that HA baseline to many more worker processes purely for capacity, without changing the feature-module model. Least-privilege Gateway Intents are required — modules must not request privileged Discord data access merely for convenience, and a future module registry must make each module's required permissions/intents explicit. `LOCKED`. See `docs/DISCORD_RULES.md` for constraints that apply regardless.
 - **Multi-tenant conceptual model** — [ADR-0006](adr/0006-multi-tenant-model.md): User/Tenant/TenantMembership/Guild/BotApplication/GuildBotAssignment/BotCredential/GuildConfiguration/FeatureConfiguration/AuditEvent/**WorkerAssignment** (the last added during Gate 1 review to close a cross-reference gap — see `docs/adr/README.md`'s Gate 1 approval note). `LOCKED CONCEPTUALLY` — the physical MySQL schema is explicitly **not** approved by this decision and remains a separate, later decision.
 - **Bot credential encryption & key management** — [ADR-0007](adr/0007-credential-encryption.md), `[SECURITY-SENSITIVE — NEEDS REVIEW]`: envelope encryption (AES-256-GCM via `@noble/ciphers`), KEK held outside the database. `LOCKED WITH AMENDMENT`: plaintext decryption is **not** confined to `apps/api` — it happens in the authorized bot worker, scoped to the `BotApplication`s it hosts; the normal API request path never transports or exposes plaintext. Rotation lifecycle is locked (PENDING → validated → worker-activated → atomically promoted to ACTIVE; superseded ciphertext deleted, not archived).
 - **Deployment/runtime model** — [ADR-0008](adr/0008-deployment-runtime-model.md): four deployable units (`creatorcore-web`, `creatorcore-api`, `creatorcore-worker`, MySQL), no queue/cache/orchestration yet. `LOCKED`.
@@ -65,22 +65,24 @@ The items below are approved and binding, each recorded as an ADR under `docs/ad
 
 See `docs/THREAT_MODEL.md` for the Gate 1 threat analysis and security/architecture review results against this now-locked architecture.
 
-### Recommended workspace layout (Phase 1, not yet created)
+### Workspace layout (built at Gate 2, 2026-09-12)
 
 Consistent with the `apps/*`/`packages/*` convention already `[LOCKED]` above:
 
 ```
 apps/
-  web/                  # ADR-0001 — Next.js dashboard
-  api/                  # ADR-0002 — Hono backend (auth, authorization, data access, credential encryption)
-  worker/               # ADR-0005 — discord.js bot runtime
+  web/                  # ADR-0001 — Next.js dashboard (built: static foundation shell)
+  api/                  # ADR-0002 — Hono backend (built: /health, /ready only — no auth/data-access endpoints yet)
+  worker/               # ADR-0005 — discord.js bot runtime (built: lifecycle/signal handling only — no Gateway connection yet)
 packages/
-  db/                   # ADR-0004/0006 — Drizzle schema + tenant/guild-scoped repository layer
-  discord-modules/      # Reusable feature modules (XP, giveaways, moderation, etc.) consumed by apps/worker
-  config/               # Shared env/config validation, consumed by all three apps
+  db/                   # ADR-0004/0006 — Drizzle connection + readiness + migration tooling (built: zero product tables)
+  config/               # Shared, runtime-scoped env/config validation (built)
+  logger/                # ADR-0010 — structured logging + mandatory redaction, shared by apps/api and apps/worker (built)
+  discord-modules/      # Reusable feature modules (XP, giveaways, moderation, etc.) consumed by apps/worker — not yet created, no module exists to justify it
+  contracts/            # Shared transport/domain contracts between apps/api and apps/worker (e.g. future worker-identity types) — deliberately not created yet; apps/api exposes no worker-facing endpoint in Gate 2 for such a contract to describe
 ```
 
-This is a naming/structure recommendation only — no code exists under any of these paths yet. Recorded now so Gate 1 implementation doesn't invent conflicting conventions ad hoc (an architecture-review finding from the Phase 1 proposal).
+`packages/logger` was added during Gate 2 implementation (not anticipated in the original Phase 1 layout sketch) because ADR-0010 requires redaction to live in one shared place, used identically by `apps/api` and `apps/worker` — a real, current two-consumer need, not speculative.
 
 ## 6. Client source-code strategy `[PROPOSED]`
 
@@ -99,3 +101,7 @@ Local, test, staging, and production must be clearly separated (see `docs/DEVELO
 No dashboard, no Discord bot code, no database schema or migrations, no authentication implementation, no production API routes, no billing integration, no ORM, no Discord client library. Phase 0 is documentation, tooling, and review-agent/skill infrastructure only.
 
 **Gate 1 (2026-09-12) locked the Phase 1 architecture decisions above** — it did not change this. No product code, product dependencies, or schema exist yet; Gate 1 approved what to build and under what constraints, not an implementation.
+
+## 9. Phase 2 status (2026-09-12): implementation foundation, not product features
+
+Real workspaces now exist — `apps/web`, `apps/api`, `apps/worker`, `packages/config`, `packages/db`, `packages/logger` — with real lint/typecheck/unit-test/build gates (`docs/RELEASE_GATES.md`). This is the buildable-monorepo foundation the locked architecture above describes, **not** an implementation of any product feature: `apps/web` is a static neutral shell, `apps/api` exposes only `/health`/`/ready`, `apps/worker` has no Discord Gateway connection, and `packages/db` has zero product tables (`docs/adr/0006` locks the conceptual model only). `packages/contracts` deliberately does not exist yet — no two real workspaces currently need a shared transport/domain contract; creating one speculatively would be exactly the premature abstraction this document's module-boundary principle warns against.

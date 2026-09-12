@@ -1,0 +1,32 @@
+{
+  "name": "@creatorcore/web",
+  "private": true,
+  "version": "0.0.0",
+  "description": "CreatorCore dashboard UI/BFF foundation (docs/adr/0001-dashboard-framework.md) — a minimal neutral shell, no product screens yet.",
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "next build",
+    "typecheck": "tsc --noEmit",
+    "start": "next start",
+    "dev": "next dev"
+  },
+  "creatorcore": {
+    "testGates": {
+      "unit": false,
+      "integration": false,
+      "e2e": false
+    }
+  },
+  "dependencies": {
+    "@creatorcore/config": "workspace:*",
+    "next": "^16.3.5",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "^5.9.3"
+  }
+}
