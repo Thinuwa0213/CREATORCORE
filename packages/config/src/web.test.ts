@@ -24,4 +24,12 @@ describe("loadWebConfig", () => {
       expect(name).not.toMatch(secretLike);
     }
   });
+
+  it("cannot reach DATABASE_URL through the browser-safe config API", () => {
+    const fieldNames = Object.keys(webConfigSchema.shape);
+    expect(fieldNames).not.toContain("DATABASE_URL");
+
+    const config = loadWebConfig({ DATABASE_URL: "mysql://creatorcore:leak@127.0.0.1:3306/db" });
+    expect(config).not.toHaveProperty("DATABASE_URL");
+  });
 });

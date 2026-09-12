@@ -1,16 +1,16 @@
 export { loadConfig } from "./env.js";
 export { ConfigValidationError } from "./errors.js";
 
-// databaseConfigSchema/loadDatabaseConfig are deliberately NOT re-exported
-// here — see package.json's "exports" field and README.md. Only
-// apps/api (via its own composed ApiConfig) and @creatorcore/config/database
-// itself can read database credentials; importing the bare
-// "@creatorcore/config" specifier must never be a path to DB_* values,
-// since apps/web and apps/worker already legitimately depend on this
-// package for their own (non-DB) config.
+// databaseConfigSchema/loadDatabaseConfig AND apiConfigSchema/loadApiConfig
+// are deliberately NOT re-exported here — see package.json's "exports"
+// field and README.md. apiConfigSchema `.extend()`s databaseConfigSchema's
+// shape, so it carries DATABASE_URL too; re-exporting it from this bare
+// entry would reopen the exact leak the /database subpath split exists to
+// close, since apps/web and apps/worker already legitimately depend on
+// this package for their own (non-DB) config. Only apps/api imports
+// @creatorcore/config/api; only apps/api (via that) and
+// @creatorcore/config/database itself ever read DATABASE_URL.
 export type { DatabaseConfig } from "./database.js";
-
-export { apiConfigSchema, loadApiConfig } from "./api.js";
 export type { ApiConfig } from "./api.js";
 
 export { workerConfigSchema, loadWorkerConfig } from "./worker.js";

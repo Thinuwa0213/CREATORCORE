@@ -39,11 +39,11 @@ pnpm --filter @creatorcore/api build && pnpm --filter @creatorcore/api start   #
 pnpm --filter @creatorcore/worker build && pnpm --filter @creatorcore/worker start
 ```
 
-`apps/api` needs `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USER`/`DB_PASSWORD` set (see `.env.example`) to start — it fails fast with a safe error if they're missing or malformed, per `packages/config`'s rules. `apps/web` and `apps/worker` need no database configuration at all; they structurally cannot hold DB credentials since their package.json dependencies never include `@creatorcore/db`.
+`apps/api` needs `DATABASE_URL` set (see `.env.example`) to start — it fails fast with a safe error if it's missing or malformed, per `packages/config`'s rules. `apps/web` and `apps/worker` need no database configuration at all; they structurally cannot hold DB credentials since their package.json dependencies never include `@creatorcore/db`.
 
 ### MySQL for local integration testing
 
-`pnpm test:integration` requires a real MySQL 8.0+ instance reachable via the `DB_*` variables — no SQLite substitution (`docs/DATABASE_RULES.md`). If none is reachable, the integration tests **skip visibly** (reported as `CONFIGURED BUT NOT VERIFIED`, never a faked pass) rather than failing silently or lying about coverage. A local MySQL 8 container (e.g. `docker run -e MYSQL_ROOT_PASSWORD=... -e MYSQL_DATABASE=creatorcore -p 3306:3306 mysql:8`) is one way to get a real instance; CI runs one automatically via a GitHub Actions service container.
+`pnpm test:integration` requires a real MySQL 8.0+ instance reachable via `DATABASE_URL` — no SQLite substitution (`docs/DATABASE_RULES.md`). If none is reachable, the integration tests **skip visibly** (reported as `CONFIGURED BUT NOT VERIFIED`, never a faked pass) rather than failing silently or lying about coverage. A local MySQL 8 container (e.g. `docker run -e MYSQL_ROOT_PASSWORD=... -e MYSQL_DATABASE=creatorcore -p 3306:3306 mysql:8`) is one way to get a real instance; CI runs one automatically via a GitHub Actions service container.
 
 ## Git workflow `[PROPOSED]`
 

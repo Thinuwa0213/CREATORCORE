@@ -7,38 +7,26 @@ import { loadDatabaseConfig } from "@creatorcore/config/database";
  * see README.md). Running `db:generate` against an empty schema produces no
  * migrations, which is the honest Phase 2 state, not a placeholder.
  *
- * Credentials come from the same @creatorcore/config schema apps/api uses —
- * not a second, independently-maintained copy of the DB_* variable names
- * (a duplication found during Gate 2 architecture review). `db:generate`
- * only diffs the schema and never connects, so it works with no env vars
- * set at all via the fallback below; `db:migrate`/`db:push` do connect and
- * need real DB_* values.
+ * The URL comes from the same @creatorcore/config schema apps/api uses —
+ * not a second, independently-maintained copy of the contract (a
+ * duplication found during Gate 2 architecture review). `db:generate` only
+ * diffs the schema and never connects, so it works with no env vars set at
+ * all via the fallback below; `db:migrate`/`db:push` do connect and need a
+ * real `DATABASE_URL`.
  */
-function resolveDbCredentials() {
+function resolveDatabaseUrl(): string {
   try {
-    return loadDatabaseConfig();
+    return loadDatabaseConfig().DATABASE_URL;
   } catch {
-    return {
-      DB_HOST: "127.0.0.1",
-      DB_PORT: 3306,
-      DB_NAME: "creatorcore",
-      DB_USER: "creatorcore",
-      DB_PASSWORD: "",
-    };
+    return "mysql://creatorcore:@127.0.0.1:3306/creatorcore";
   }
 }
-
-const dbConfig = resolveDbCredentials();
 
 export default defineConfig({
   dialect: "mysql",
   schema: "./src/schema.ts",
   out: "./drizzle",
   dbCredentials: {
-    host: dbConfig.DB_HOST,
-    port: dbConfig.DB_PORT,
-    database: dbConfig.DB_NAME,
-    user: dbConfig.DB_USER,
-    password: dbConfig.DB_PASSWORD,
+    url: resolveDatabaseUrl(),
   },
 });

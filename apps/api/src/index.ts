@@ -1,5 +1,6 @@
 import { serve } from "@hono/node-server";
-import { loadApiConfig, ConfigValidationError } from "@creatorcore/config";
+import { ConfigValidationError } from "@creatorcore/config";
+import { loadApiConfig } from "@creatorcore/config/api";
 import { createLogger } from "@creatorcore/logger";
 import { createDatabaseClient, checkDatabaseConnectivity } from "@creatorcore/db";
 import { createApp } from "./app.js";

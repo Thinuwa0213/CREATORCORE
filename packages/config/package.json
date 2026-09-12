@@ -15,6 +15,10 @@
     "./database": {
       "types": "./dist/database.d.ts",
       "default": "./dist/database.js"
+    },
+    "./api": {
+      "types": "./dist/api.d.ts",
+      "default": "./dist/api.js"
     }
   },
   "scripts": {

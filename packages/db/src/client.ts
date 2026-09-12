@@ -18,17 +18,16 @@ export interface DatabaseClient {
  * (docs/adr/0004-orm-data-layer.md) — consumers get `db` (or, once real
  * tables exist, a `findByTenantAndId`-shaped repository function), never a
  * bare "query anything" escape hatch.
+ *
+ * `config.DATABASE_URL` is passed straight through to mysql2's own
+ * connection-string parser rather than re-parsed here (mysql2 extracts
+ * host/port/user/password/database from the URI itself and already defaults
+ * to a utf8mb4 charset — docs/DATABASE_RULES.md's locked engine charset —
+ * when none is specified), so this package does not maintain a second,
+ * competing parse of the same URL.
  */
 export function createDatabaseClient(config: DatabaseConfig): DatabaseClient {
-  const pool = mysql.createPool({
-    host: config.DB_HOST,
-    port: config.DB_PORT,
-    database: config.DB_NAME,
-    user: config.DB_USER,
-    password: config.DB_PASSWORD,
-    connectionLimit: config.DB_CONNECTION_LIMIT,
-    charset: "utf8mb4",
-  });
+  const pool = mysql.createPool(config.DATABASE_URL);
 
   const db = drizzle(pool, { schema, casing: "snake_case", mode: "default" });
 

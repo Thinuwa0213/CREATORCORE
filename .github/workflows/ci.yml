@@ -57,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     # Real MySQL 8.0+ service container — never SQLite (docs/DATABASE_RULES.md).
     # packages/db and apps/api declare creatorcore.testGates.integration = true
-    # and connect to this service via the DB_* vars below.
+    # and connect to this service via the DATABASE_URL below.
     services:
       mysql:
         image: mysql:8.0
@@ -76,11 +76,7 @@ jobs:
     env:
       # CI-only, disposable test credentials — never shared with staging/production
       # (docs/DEVELOPMENT.md's environment-separation rule).
-      DB_HOST: 127.0.0.1
-      DB_PORT: 3306
-      DB_NAME: creatorcore_test
-      DB_USER: creatorcore
-      DB_PASSWORD: creatorcore_test_password
+      DATABASE_URL: mysql://creatorcore:creatorcore_test_password@127.0.0.1:3306/creatorcore_test
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
