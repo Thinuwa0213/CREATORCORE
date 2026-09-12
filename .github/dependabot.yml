@@ -1,0 +1,18 @@
+# Status: CONFIGURED BUT NOT YET VERIFIED — this repository has no GitHub
+# remote yet. Dependabot will start actually running once pushed.
+# Catches: known CVEs in existing dependencies, outdated versions.
+# Does NOT catch: vulnerabilities in this repo's own code, or misuse of an
+# otherwise-secure dependency. See docs/SECURITY.md.
+
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
