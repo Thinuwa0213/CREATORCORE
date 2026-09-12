@@ -12,13 +12,16 @@
 
 This engine choice is fixed. Do not propose or silently substitute PostgreSQL, SQLite, or any other engine in code, tests, or documentation.
 
+## ORM / database client `[LOCKED, Gate 1 — `docs/adr/0004-orm-data-layer.md`]`
+
+Drizzle ORM + `mysql2` + `drizzle-kit` for migrations. Not installed yet — this locks the choice, not the implementation. Data access must be wrapped in a `packages/db` repository layer where every tenant/guild-scoped table is reachable only through functions that require the scoping ID(s) as parameters (enforcing the rule below structurally, not just by convention).
+
 ## Explicitly NOT decided yet `[UNRESOLVED]`
 
-Do not assume answers to these; they are Phase 1 decisions:
+Do not assume answers to these; they remain open decisions:
 
-- ORM / database client library (e.g., an ORM, a query builder, or raw `mysql2`-style access) — none is installed in Phase 0.
-- Schema design (tables, columns, indexes).
-- Migration strategy and tooling.
+- Schema design (tables, columns, indexes) — ADR-0006 locks the conceptual entity model only, not the physical schema.
+- Migration strategy specifics beyond `drizzle-kit` itself.
 - Connection pooling strategy and pool sizing.
 - Hosting/provider for MySQL in each environment.
 - Backup/restore implementation.

@@ -24,7 +24,7 @@ These are the entities the system will reason about. Naming them now avoids inco
 - **Bot application** — a customer-provided or CreatorCore-provisioned Discord application/bot the platform operates on a tenant's behalf.
 - **Module** — an independently enable/disable-able feature (Stream Notifications, Welcome/Auto Roles, Auto Moderation, Giveaways, XP/Levels, Button/Reaction Roles, Announcements, Custom Branding, etc.), scoped per guild.
 
-`[PROPOSED]` — exact relationship cardinality (e.g., can one guild belong to more than one tenant) is not yet decided.
+Relationship cardinality is now `[LOCKED CONCEPTUALLY]` via [ADR-0006](adr/0006-multi-tenant-model.md): a guild belongs to exactly one tenant (no shared multi-tenant guild ownership in Phase 1); a tenant may manage multiple guilds and multiple bot applications; one bot application may serve multiple guilds via a GuildBotAssignment join. The physical schema implementing this is still `[UNRESOLVED]`.
 
 ## 3. Module boundary principle `[LOCKED — principle; not tied to a specific framework]`
 
@@ -45,16 +45,42 @@ Tenant isolation and guild isolation are security boundaries, not just data-mode
 - **Monorepo tooling: pnpm workspaces + Turborepo, TypeScript strict mode, ESLint + Prettier, Vitest, Playwright, GitHub Actions.** `[LOCKED — tooling/infrastructure layer only]`. This is the engineering-foundation layer scaffolded in Phase 0; it does not imply or constrain the product application stack below.
 - **Workspace layout convention:** deployable applications live under `apps/*`; shared libraries live under `packages/*`. `[LOCKED — convention, not framework choice]`
 
-### Unresolved — Phase 1 decisions, not to be assumed
+### Locked — Phase 1 architecture (Gate 1, approved 2026-09-12)
 
-- **ORM / database client** — `[UNRESOLVED]`. No ORM is installed. Candidates to evaluate in Phase 1 include Drizzle, Prisma, or a query-builder/raw-SQL approach; none is approved.
-- **API framework** — `[UNRESOLVED]`. Candidates might include Hono, Express, Fastify, or a framework-integrated API layer; none is approved.
-- **Dashboard framework** — `[UNRESOLVED]`. Candidates might include Next.js or another React-based framework; none is approved.
-- **Authentication system** — `[UNRESOLVED]`, `[SECURITY-SENSITIVE — NEEDS REVIEW]`. Discord OAuth will be involved somewhere in the flow (dashboard users log in with Discord per the product direction), but session strategy, token storage, and library choice (e.g., a library like Better Auth vs. a hand-rolled OAuth flow) are undecided.
-- **Discord bot runtime** — `[UNRESOLVED]`. Library (e.g., discord.js or an alternative), process model (single worker vs. sharded/horizontally scaled workers), and how customer-provided bot applications are hosted are all undecided. See `docs/DISCORD_RULES.md` for constraints that apply regardless of the eventual choice.
-- **Billing/subscriptions** — `[UNRESOLVED]`. Not implemented in any form yet.
-- **Hosting / deployment architecture** — `[UNRESOLVED]`.
-- **Horizontal scaling strategy for bot workers** — `[UNRESOLVED]`.
+The items below are approved and binding, each recorded as an ADR under `docs/adr/` — see `docs/adr/README.md` for exact status wording (several carry a required amendment, recorded in the ADR itself). **None of these are installed or implemented yet** — Gate 1 approves the architecture; it does not authorize writing product code, installing product dependencies, or creating a database schema/migration. Those remain separate, later gates.
+
+- **ORM / database client** — [ADR-0004](adr/0004-orm-data-layer.md): Drizzle ORM + `mysql2` + `drizzle-kit`. `LOCKED`.
+- **API framework** — [ADR-0002](adr/0002-backend-api-architecture.md): Hono, as a separate `apps/api` service (hybrid backend architecture). `apps/api` owns authoritative control-plane business rules, authorization, configuration APIs, credential-management orchestration, and audit operations — this logic must never be duplicated independently inside `apps/web`. `LOCKED`.
+- **Dashboard framework** — [ADR-0001](adr/0001-dashboard-framework.md): Next.js (App Router), used as a UI/BFF layer only — `apps/web` is not the system of record for privileged platform state. `LOCKED`.
+- **Authentication system** — [ADR-0003](adr/0003-authentication-sessions.md), `[SECURITY-SENSITIVE — NEEDS REVIEW]`: Better Auth, running inside `apps/api`, Discord OAuth2 provider, server-side revocable sessions. `LOCKED WITH POLICY`: read-only/non-destructive authorization decisions may be cached for at most 5 minutes; destructive/credential/ownership/security-sensitive actions always re-verify synchronously; cached UI state never grants a privileged operation.
+- **Discord bot runtime** — [ADR-0005](adr/0005-discord-runtime.md): discord.js, one worker process holding multiple `Client` instances (one per customer bot application) for Phase 1, running ≥2 replicas from day one (ADR-0008) for availability. The `WorkerAssignment` claim mechanism (ADR-0006) that decides which replica currently owns which `BotApplication` is a live Gate 1 requirement, not deferred — what remains a genuinely future migration is scaling *beyond* that HA baseline to many more worker processes purely for capacity, without changing the feature-module model. Least-privilege Gateway Intents are required — modules must not request privileged Discord data access merely for convenience, and a future module registry must make each module's required permissions/intents explicit. `LOCKED`. See `docs/DISCORD_RULES.md` for constraints that apply regardless.
+- **Multi-tenant conceptual model** — [ADR-0006](adr/0006-multi-tenant-model.md): User/Tenant/TenantMembership/Guild/BotApplication/GuildBotAssignment/BotCredential/GuildConfiguration/FeatureConfiguration/AuditEvent/**WorkerAssignment** (the last added during Gate 1 review to close a cross-reference gap — see `docs/adr/README.md`'s Gate 1 approval note). `LOCKED CONCEPTUALLY` — the physical MySQL schema is explicitly **not** approved by this decision and remains a separate, later decision.
+- **Bot credential encryption & key management** — [ADR-0007](adr/0007-credential-encryption.md), `[SECURITY-SENSITIVE — NEEDS REVIEW]`: envelope encryption (AES-256-GCM via `@noble/ciphers`), KEK held outside the database. `LOCKED WITH AMENDMENT`: plaintext decryption is **not** confined to `apps/api` — it happens in the authorized bot worker, scoped to the `BotApplication`s it hosts; the normal API request path never transports or exposes plaintext. Rotation lifecycle is locked (PENDING → validated → worker-activated → atomically promoted to ACTIVE; superseded ciphertext deleted, not archived).
+- **Deployment/runtime model** — [ADR-0008](adr/0008-deployment-runtime-model.md): four deployable units (`creatorcore-web`, `creatorcore-api`, `creatorcore-worker`, MySQL), no queue/cache/orchestration yet. `LOCKED`.
+- **Internal communication** — [ADR-0009](adr/0009-internal-communication.md): direct internal HTTP (poll + narrow push callback), no broker. `LOCKED WITH AMENDMENT`: a push notification for urgent events (credential rotation, disablement) is a non-secret signal only (e.g. "credential version changed") — it never carries the credential itself; the worker retrieves actual material through ADR-0007's controlled path.
+- **Worker service identity & internal auth** — [ADR-0011](adr/0011-worker-service-identity.md): independent per-worker identity, rotatable bootstrap secret exchanged for a short-lived (15-minute target) scoped internal access credential — never one shared global internal password. `LOCKED — DIRECTION`; exact signing/token implementation deferred to implementation design.
+- **Observability & audit** — [ADR-0010](adr/0010-observability-audit.md): structured logs with mandatory redaction, a distinct append-only AuditEvent model. `LOCKED`.
+- **Billing/subscriptions** — `[UNRESOLVED]`. Not analyzed in Phase 1, not implemented in any form yet.
+- **Hosting/deployment provider, connection pooling, backup/restore implementation** — `[UNRESOLVED]`. ADR-0008 defines the deployment _shape_; the specific provider and mechanism are open.
+
+See `docs/THREAT_MODEL.md` for the Gate 1 threat analysis and security/architecture review results against this now-locked architecture.
+
+### Recommended workspace layout (Phase 1, not yet created)
+
+Consistent with the `apps/*`/`packages/*` convention already `[LOCKED]` above:
+
+```
+apps/
+  web/                  # ADR-0001 — Next.js dashboard
+  api/                  # ADR-0002 — Hono backend (auth, authorization, data access, credential encryption)
+  worker/               # ADR-0005 — discord.js bot runtime
+packages/
+  db/                   # ADR-0004/0006 — Drizzle schema + tenant/guild-scoped repository layer
+  discord-modules/      # Reusable feature modules (XP, giveaways, moderation, etc.) consumed by apps/worker
+  config/               # Shared env/config validation, consumed by all three apps
+```
+
+This is a naming/structure recommendation only — no code exists under any of these paths yet. Recorded now so Gate 1 implementation doesn't invent conflicting conventions ad hoc (an architecture-review finding from the Phase 1 proposal).
 
 ## 6. Client source-code strategy `[PROPOSED]`
 
@@ -71,3 +97,5 @@ Local, test, staging, and production must be clearly separated (see `docs/DEVELO
 ## 8. What Phase 0 explicitly does not include
 
 No dashboard, no Discord bot code, no database schema or migrations, no authentication implementation, no production API routes, no billing integration, no ORM, no Discord client library. Phase 0 is documentation, tooling, and review-agent/skill infrastructure only.
+
+**Gate 1 (2026-09-12) locked the Phase 1 architecture decisions above** — it did not change this. No product code, product dependencies, or schema exist yet; Gate 1 approved what to build and under what constraints, not an implementation.
