@@ -45,10 +45,7 @@ function validateMysqlUrl(value: string, ctx: z.RefinementCtx) {
  * package does not maintain a second, competing parse of its parts.
  */
 export const databaseConfigSchema = z.object({
-  DATABASE_URL: z
-    .string()
-    .min(1, "DATABASE_URL is required")
-    .superRefine(validateMysqlUrl),
+  DATABASE_URL: z.string().min(1, "DATABASE_URL is required").superRefine(validateMysqlUrl),
 });
 
 export type DatabaseConfig = z.infer<typeof databaseConfigSchema>;

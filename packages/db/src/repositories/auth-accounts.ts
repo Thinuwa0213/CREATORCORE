@@ -44,7 +44,10 @@ export async function findDiscordAccountIdByBetterAuthUserId(
  * (apps/api/src/auth/hooks.ts's `account.create.after`). Never security-
  * relevant: a lookup miss just means no display name is stored.
  */
-export async function findAuthUserName(db: Db, betterAuthUserId: string): Promise<string | undefined> {
+export async function findAuthUserName(
+  db: Db,
+  betterAuthUserId: string,
+): Promise<string | undefined> {
   const [row] = await db
     .select({ name: authUsers.name })
     .from(authUsers)
@@ -126,4 +129,3 @@ export async function createTestUserSession(
 
   return { sessionToken, betterAuthUserId };
 }
-

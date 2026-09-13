@@ -42,7 +42,10 @@ const HOP_BY_HOP_RESPONSE_HEADERS = new Set([
 const SAFE_PATH_SEGMENT = /^[A-Za-z0-9_-]+$/;
 
 async function proxyToApi(request: Request, pathSegments: string[]): Promise<Response> {
-  if (pathSegments.length === 0 || !pathSegments.every((segment) => SAFE_PATH_SEGMENT.test(segment))) {
+  if (
+    pathSegments.length === 0 ||
+    !pathSegments.every((segment) => SAFE_PATH_SEGMENT.test(segment))
+  ) {
     return new Response(JSON.stringify({ error: "not_found" }), {
       status: 404,
       headers: { "content-type": "application/json" },

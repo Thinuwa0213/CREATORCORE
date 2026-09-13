@@ -53,8 +53,7 @@ interface WorkerTokenPayload {
 }
 
 export type VerifyWorkerTokenResult =
-  | { ok: true; workerId: string }
-  | { ok: false; reason: string; workerId?: string };
+  { ok: true; workerId: string } | { ok: false; reason: string; workerId?: string };
 
 function computeSignature(payloadSegment: string, key: string): Buffer {
   return createHmac("sha256", key).update(`${CONTEXT_STRING}.${payloadSegment}`).digest();

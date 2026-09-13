@@ -1,6 +1,18 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { connectGuildForUser, createUser, findTenantMembership, type DatabaseClient } from "../../src/index.js";
-import { cleanupTenant, cleanupUser, createTestClient, probeDatabase, randomSnowflake, testId } from "./helpers.js";
+import {
+  connectGuildForUser,
+  createUser,
+  findTenantMembership,
+  type DatabaseClient,
+} from "../../src/index.js";
+import {
+  cleanupTenant,
+  cleanupUser,
+  createTestClient,
+  probeDatabase,
+  randomSnowflake,
+  testId,
+} from "./helpers.js";
 
 /**
  * Amendment 5's global-uniqueness proof and the insert-first/catch-duplicate
@@ -68,7 +80,12 @@ describe.skipIf(!dbAvailable)("connectGuildForUser (real MySQL)", () => {
     if (first.outcome !== "created") return;
     createdTenantIds.push(first.tenantId);
 
-    const attempt = await connectGuildForUser(client.db, userB, guildId, testId("guild-owned-by-a"));
+    const attempt = await connectGuildForUser(
+      client.db,
+      userB,
+      guildId,
+      testId("guild-owned-by-a"),
+    );
     expect(attempt).toEqual({ outcome: "conflict" });
 
     // The guild must not have been silently transferred or duplicated.

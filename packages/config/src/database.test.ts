@@ -15,9 +15,7 @@ describe("loadDatabaseConfig", () => {
   });
 
   it("rejects a malformed URL", () => {
-    expect(() => loadDatabaseConfig({ DATABASE_URL: "not a url" })).toThrow(
-      ConfigValidationError,
-    );
+    expect(() => loadDatabaseConfig({ DATABASE_URL: "not a url" })).toThrow(ConfigValidationError);
   });
 
   it("rejects a non-MySQL protocol", () => {

@@ -1,5 +1,9 @@
 import { redirect } from "next/navigation";
 import { callApiServer, getServerSession } from "../../../../../lib/api";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { ShieldAlert, Bot, Activity, Server, ArrowRight, CheckCircle2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -28,151 +32,182 @@ export default async function GuildOverviewPage({ params }: PageProps) {
       | "DEGRADED"
       | "OFFLINE";
     botApplicationId: string | null;
-  }>(`/app/tenants/${encodeURIComponent(tenantId)}/guilds/${encodeURIComponent(guildId)}/runtime-status`);
+  }>(
+    `/app/tenants/${encodeURIComponent(tenantId)}/guilds/${encodeURIComponent(guildId)}/runtime-status`,
+  );
 
   if (!res.ok || !res.data) {
     return (
-      <main style={{ padding: "2rem", maxWidth: "640px", margin: "0 auto", fontFamily: "system-ui, sans-serif" }}>
-        <div
-          id="access-denied-container"
-          style={{
-            padding: "1.5rem",
-            backgroundColor: "#fef2f2",
-            border: "1px solid #fecaca",
-            borderRadius: "6px",
-          }}
-        >
-          <h1 style={{ color: "#991b1b", fontSize: "1.25rem", margin: 0 }}>Access Denied</h1>
-          <p id="access-denied-message" style={{ color: "#b91c1c", marginTop: "0.5rem" }}>
-            {res.error ?? "You do not have access to this guild or tenant."}
-          </p>
-          <a href="/guilds" style={{ color: "#2563eb", marginTop: "1rem", display: "inline-block" }}>
-            &larr; Back to Guild Selection
-          </a>
+      <div
+        id="access-denied-container"
+        className="rounded-lg border border-destructive/20 bg-destructive/5 p-6 shadow-sm max-w-lg mx-auto"
+      >
+        <div className="flex items-center gap-2.5 text-destructive mb-2">
+          <ShieldAlert className="h-5 w-5" />
+          <h1 className="text-lg font-semibold">Access Denied</h1>
         </div>
-      </main>
+        <p id="access-denied-message" className="text-sm text-destructive leading-relaxed">
+          {res.error ?? "You do not have access to this guild or tenant."}
+        </p>
+        <div className="mt-6 pt-4 border-t border-destructive/15">
+          <Button variant="outline" size="sm" asChild>
+            <a href="/guilds">&larr; Back to Guild Selection</a>
+          </Button>
+        </div>
+      </div>
     );
   }
 
   const { status, botApplicationId } = res.data;
 
-  const getBadgeColor = (st: string) => {
+  const getBadgeVariant = (
+    st: string,
+  ): "success" | "default" | "warning" | "secondary" | "destructive" => {
     switch (st) {
       case "ONLINE":
-        return { bg: "#dcfce7", text: "#15803d" };
+        return "success";
       case "ACTIVE_ASSIGNMENT":
-        return { bg: "#e0e7ff", text: "#3730a3" };
+        return "default";
       case "UNASSIGNED":
-        return { bg: "#fef9c3", text: "#854d0e" };
+        return "warning";
       case "NOT_CONFIGURED":
-        return { bg: "#f3f4f6", text: "#4b5563" };
+        return "secondary";
       case "DEGRADED":
       case "OFFLINE":
       default:
-        return { bg: "#fee2e2", text: "#991b1b" };
+        return "destructive";
     }
   };
 
-  const badgeStyle = getBadgeColor(status);
+  const badgeVariant = getBadgeVariant(status);
 
   return (
-    <main style={{ padding: "2rem", maxWidth: "640px", margin: "0 auto", fontFamily: "system-ui, sans-serif" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-        <h1 style={{ fontSize: "1.5rem", fontWeight: 700, margin: 0 }}>Guild Overview</h1>
-        <a href="/guilds" style={{ color: "#2563eb", fontSize: "0.875rem" }}>&larr; Guilds</a>
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-border">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Guild Overview</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Operational status and bot application configuration for this server.
+          </p>
+        </div>
+
+        <Button variant="outline" size="sm" asChild>
+          <a href="/guilds">&larr; All Servers</a>
+        </Button>
       </div>
 
+      {/* Main Overview Card */}
       <div
         id="guild-overview-card"
-        style={{
-          backgroundColor: "#ffffff",
-          borderRadius: "8px",
-          border: "1px solid #e5e7eb",
-          padding: "1.5rem",
-          boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-        }}
+        className="rounded-lg border border-border bg-card p-6 shadow-sm"
       >
-        <section style={{ marginBottom: "1.25rem" }}>
-          <h2 style={{ fontSize: "0.875rem", textTransform: "uppercase", color: "#6b7280", margin: "0 0 0.5rem 0" }}>
-            Guild Identity
-          </h2>
-          <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", rowGap: "0.5rem", fontSize: "0.875rem" }}>
-            <span style={{ color: "#6b7280" }}>Discord Guild ID:</span>
-            <strong id="overview-guild-id">{guildId}</strong>
-            <span style={{ color: "#6b7280" }}>Tenant ID:</span>
-            <code id="overview-tenant-id" style={{ backgroundColor: "#f3f4f6", padding: "0.125rem 0.25rem", borderRadius: "3px" }}>
-              {tenantId}
-            </code>
+        {/* Guild Identity */}
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <Server className="h-4 w-4" />
+            <span>Server Identity</span>
           </div>
+
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+            <div>
+              <dt className="text-xs text-muted-foreground">Discord Guild ID</dt>
+              <dd id="overview-guild-id" className="font-mono text-foreground font-semibold mt-0.5">
+                {guildId}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Tenant ID</dt>
+              <dd className="mt-0.5">
+                <code
+                  id="overview-tenant-id"
+                  className="font-mono text-xs text-foreground bg-muted px-2 py-0.5 rounded"
+                >
+                  {tenantId}
+                </code>
+              </dd>
+            </div>
+          </dl>
         </section>
 
-        <hr style={{ margin: "1.25rem 0", borderColor: "#f3f4f6" }} />
+        <Separator className="my-6" />
 
-        <section style={{ marginBottom: "1.25rem" }}>
-          <h2 style={{ fontSize: "0.875rem", textTransform: "uppercase", color: "#6b7280", margin: "0 0 0.5rem 0" }}>
-            Bot Application Status
-          </h2>
-          <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", rowGap: "0.5rem", fontSize: "0.875rem" }}>
-            <span style={{ color: "#6b7280" }}>Application:</span>
-            <span id="overview-bot-app-status">
-              {botApplicationId ? `Configured (${botApplicationId})` : "Not Configured"}
-            </span>
-            <span style={{ color: "#6b7280" }}>Credential:</span>
-            <span id="overview-credential-status">
-              {status === "NOT_CONFIGURED" ? "None" : "Stored & Encrypted"}
-            </span>
+        {/* Bot Application Status */}
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <Bot className="h-4 w-4" />
+            <span>Bot Application Configuration</span>
           </div>
+
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+            <div>
+              <dt className="text-xs text-muted-foreground">Application</dt>
+              <dd id="overview-bot-app-status" className="font-medium text-foreground mt-0.5">
+                {botApplicationId ? `Configured (${botApplicationId})` : "Not Configured"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Credential Status</dt>
+              <dd id="overview-credential-status" className="font-medium text-foreground mt-0.5">
+                {status === "NOT_CONFIGURED" ? "None" : "Stored & Encrypted"}
+              </dd>
+            </div>
+          </dl>
         </section>
 
-        <hr style={{ margin: "1.25rem 0", borderColor: "#f3f4f6" }} />
+        <Separator className="my-6" />
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <h2 style={{ fontSize: "0.875rem", textTransform: "uppercase", color: "#6b7280", margin: "0 0 0.5rem 0" }}>
-            Authoritative Runtime Status
-          </h2>
-          <div style={{ marginTop: "0.5rem" }}>
-            <span
+        {/* Authoritative Runtime Status */}
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <Activity className="h-4 w-4" />
+            <span>Authoritative Runtime Status</span>
+          </div>
+
+          <div className="flex items-center gap-3 pt-1">
+            <Badge
               id="overview-runtime-status-badge"
               data-status={status}
-              style={{
-                display: "inline-block",
-                padding: "0.25rem 0.75rem",
-                borderRadius: "9999px",
-                fontSize: "0.875rem",
-                fontWeight: 600,
-                backgroundColor: badgeStyle.bg,
-                color: badgeStyle.text,
-              }}
+              variant={badgeVariant}
+              className="text-xs px-3 py-1 font-semibold"
             >
               {status}
+            </Badge>
+            <span className="text-xs text-muted-foreground">
+              {status === "ONLINE"
+                ? "Bot worker active and connected to Discord Gateway."
+                : status === "ACTIVE_ASSIGNMENT"
+                  ? "Assigned to an active bot worker replica."
+                  : status === "UNASSIGNED"
+                    ? "Application configured; awaiting worker assignment."
+                    : "Bot credentials required to activate this server."}
             </span>
           </div>
         </section>
 
-        <div id="setup-action-container" style={{ marginTop: "1.5rem" }}>
+        {/* Action Container */}
+        <div id="setup-action-container" className="mt-8 pt-6 border-t border-border">
           {status === "NOT_CONFIGURED" ? (
-            <a
-              id="setup-bot-link"
-              href={`/tenants/${tenantId}/guilds/${guildId}/setup`}
-              style={{
-                display: "inline-block",
-                padding: "0.625rem 1.25rem",
-                backgroundColor: "#2563eb",
-                color: "white",
-                textDecoration: "none",
-                borderRadius: "4px",
-                fontWeight: 600,
-              }}
-            >
-              Configure Discord Bot &rarr;
-            </a>
+            <Button id="setup-bot-link" asChild size="default">
+              <a
+                href={`/tenants/${tenantId}/guilds/${guildId}/setup`}
+                className="flex items-center gap-2"
+              >
+                <span>Configure Discord Bot</span>
+                <ArrowRight className="h-4 w-4" />
+              </a>
+            </Button>
           ) : (
-            <div id="bot-configured-notice" style={{ color: "#059669", fontSize: "0.875rem", fontWeight: 500 }}>
-              ✓ Bot application configured and active.
+            <div
+              id="bot-configured-notice"
+              className="flex items-center gap-2 text-sm font-medium text-success"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              <span>✓ Bot application configured and active.</span>
             </div>
           )}
         </div>
       </div>
-    </main>
+    </div>
   );
 }

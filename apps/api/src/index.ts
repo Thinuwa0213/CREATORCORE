@@ -107,7 +107,9 @@ function bootstrap() {
           fetchFn: async (_url, init) => {
             const authHeader = (init?.headers as Record<string, string>)?.Authorization || "";
             if (authHeader.includes("invalid")) {
-              return new Response(JSON.stringify({ message: "401: Unauthorized" }), { status: 401 });
+              return new Response(JSON.stringify({ message: "401: Unauthorized" }), {
+                status: 401,
+              });
             }
             const tokenMatch = authHeader.replace(/^Bot\s+/i, "").trim();
             let botId = "9999999999";
@@ -117,10 +119,10 @@ function bootstrap() {
                 (BigInt("0x" + hash.slice(0, 14)) % 9000000000000000n) + 1000000000000000n;
               botId = snowflake.toString();
             }
-            return new Response(
-              JSON.stringify({ id: botId, username: "DeterministicTestBot" }),
-              { status: 200, headers: { "Content-Type": "application/json" } },
-            );
+            return new Response(JSON.stringify({ id: botId, username: "DeterministicTestBot" }), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            });
           },
         })
       : new DiscordValidator();

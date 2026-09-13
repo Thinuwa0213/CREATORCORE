@@ -32,4 +32,3 @@ export function loadWorkerConfig(
 ): WorkerConfig {
   return loadConfig("apps/worker", workerConfigSchema, source);
 }
-

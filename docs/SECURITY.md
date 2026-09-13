@@ -106,4 +106,3 @@ Implemented in Phase 4B & Phase 4C under 9 explicit security amendments:
    - Plaintext tokens are scoped locally during login execution; references are dropped on `LOST`, `UNCERTAIN`, shutdown, and replacement.
    - V8 garbage collection memory limitation is documented honestly: in pure JS, string memory cannot be manually zeroed; CreatorCore guarantees zero retention beyond the immediate login invocation.
    - Runtime replacement invariant: at most one active runtime per bot application; temporary validation client is strictly bounded by the validation/swap window and destroyed immediately on failure, rejection, or swap.
-

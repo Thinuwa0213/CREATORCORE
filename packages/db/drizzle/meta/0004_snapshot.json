@@ -44,9 +44,7 @@
       "compositePrimaryKeys": {
         "users_id": {
           "name": "users_id",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {},
@@ -100,9 +98,7 @@
       "compositePrimaryKeys": {
         "tenants_id": {
           "name": "tenants_id",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {},
@@ -147,12 +143,8 @@
           "name": "tenant_memberships_tenant_id_tenants_id_fk",
           "tableFrom": "tenant_memberships",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -160,12 +152,8 @@
           "name": "tenant_memberships_user_id_users_id_fk",
           "tableFrom": "tenant_memberships",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -173,10 +161,7 @@
       "compositePrimaryKeys": {
         "tenant_memberships_tenant_id_user_id_pk": {
           "name": "tenant_memberships_tenant_id_user_id_pk",
-          "columns": [
-            "tenant_id",
-            "user_id"
-          ]
+          "columns": ["tenant_id", "user_id"]
         }
       },
       "uniqueConstraints": {},
@@ -230,12 +215,8 @@
           "name": "guilds_tenant_id_tenants_id_fk",
           "tableFrom": "guilds",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -243,18 +224,13 @@
       "compositePrimaryKeys": {
         "guilds_id": {
           "name": "guilds_id",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {
         "guilds_id_tenant_id_uq": {
           "name": "guilds_id_tenant_id_uq",
-          "columns": [
-            "id",
-            "tenant_id"
-          ]
+          "columns": ["id", "tenant_id"]
         }
       },
       "checkConstraint": {}
@@ -314,12 +290,8 @@
           "name": "bot_applications_tenant_id_tenants_id_fk",
           "tableFrom": "bot_applications",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -327,24 +299,17 @@
       "compositePrimaryKeys": {
         "bot_applications_id": {
           "name": "bot_applications_id",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {
         "bot_applications_discord_application_id_unique": {
           "name": "bot_applications_discord_application_id_unique",
-          "columns": [
-            "discord_application_id"
-          ]
+          "columns": ["discord_application_id"]
         },
         "bot_applications_id_tenant_id_uq": {
           "name": "bot_applications_id_tenant_id_uq",
-          "columns": [
-            "id",
-            "tenant_id"
-          ]
+          "columns": ["id", "tenant_id"]
         }
       },
       "checkConstraint": {}
@@ -397,14 +362,8 @@
           "name": "guild_bot_assignments_guild_tenant_fk",
           "tableFrom": "guild_bot_assignments",
           "tableTo": "guilds",
-          "columnsFrom": [
-            "guild_id",
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id",
-            "tenant_id"
-          ],
+          "columnsFrom": ["guild_id", "tenant_id"],
+          "columnsTo": ["id", "tenant_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -412,14 +371,8 @@
           "name": "guild_bot_assignments_bot_application_tenant_fk",
           "tableFrom": "guild_bot_assignments",
           "tableTo": "bot_applications",
-          "columnsFrom": [
-            "bot_application_id",
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id",
-            "tenant_id"
-          ],
+          "columnsFrom": ["bot_application_id", "tenant_id"],
+          "columnsTo": ["id", "tenant_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -427,9 +380,7 @@
       "compositePrimaryKeys": {
         "guild_bot_assignments_guild_id": {
           "name": "guild_bot_assignments_guild_id",
-          "columns": [
-            "guild_id"
-          ]
+          "columns": ["guild_id"]
         }
       },
       "uniqueConstraints": {},
@@ -497,9 +448,7 @@
       "compositePrimaryKeys": {
         "workers_id": {
           "name": "workers_id",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {},
@@ -537,12 +486,8 @@
           "name": "worker_eligibility_bot_application_id_bot_applications_id_fk",
           "tableFrom": "worker_eligibility",
           "tableTo": "bot_applications",
-          "columnsFrom": [
-            "bot_application_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["bot_application_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -550,12 +495,8 @@
           "name": "worker_eligibility_worker_id_workers_id_fk",
           "tableFrom": "worker_eligibility",
           "tableTo": "workers",
-          "columnsFrom": [
-            "worker_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["worker_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -563,10 +504,7 @@
       "compositePrimaryKeys": {
         "worker_eligibility_bot_application_id_worker_id_pk": {
           "name": "worker_eligibility_bot_application_id_worker_id_pk",
-          "columns": [
-            "bot_application_id",
-            "worker_id"
-          ]
+          "columns": ["bot_application_id", "worker_id"]
         }
       },
       "uniqueConstraints": {},
@@ -633,12 +571,8 @@
           "name": "worker_assignments_bot_application_id_bot_applications_id_fk",
           "tableFrom": "worker_assignments",
           "tableTo": "bot_applications",
-          "columnsFrom": [
-            "bot_application_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["bot_application_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -646,12 +580,8 @@
           "name": "worker_assignments_worker_id_workers_id_fk",
           "tableFrom": "worker_assignments",
           "tableTo": "workers",
-          "columnsFrom": [
-            "worker_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["worker_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -659,9 +589,7 @@
       "compositePrimaryKeys": {
         "worker_assignments_bot_application_id": {
           "name": "worker_assignments_bot_application_id",
-          "columns": [
-            "bot_application_id"
-          ]
+          "columns": ["bot_application_id"]
         }
       },
       "uniqueConstraints": {},
@@ -759,26 +687,17 @@
       "indexes": {
         "audit_events_tenant_occurred_idx": {
           "name": "audit_events_tenant_occurred_idx",
-          "columns": [
-            "tenant_id",
-            "occurred_at"
-          ],
+          "columns": ["tenant_id", "occurred_at"],
           "isUnique": false
         },
         "audit_events_target_idx": {
           "name": "audit_events_target_idx",
-          "columns": [
-            "target_type",
-            "target_id"
-          ],
+          "columns": ["target_type", "target_id"],
           "isUnique": false
         },
         "audit_events_action_occurred_idx": {
           "name": "audit_events_action_occurred_idx",
-          "columns": [
-            "action",
-            "occurred_at"
-          ],
+          "columns": ["action", "occurred_at"],
           "isUnique": false
         }
       },
@@ -786,9 +705,7 @@
       "compositePrimaryKeys": {
         "audit_events_id": {
           "name": "audit_events_id",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {},
@@ -882,10 +799,7 @@
       "indexes": {
         "bot_credentials_app_status_idx": {
           "name": "bot_credentials_app_status_idx",
-          "columns": [
-            "bot_application_id",
-            "status"
-          ],
+          "columns": ["bot_application_id", "status"],
           "isUnique": false
         }
       },
@@ -894,12 +808,8 @@
           "name": "bot_credentials_bot_application_id_bot_applications_id_fk",
           "tableFrom": "bot_credentials",
           "tableTo": "bot_applications",
-          "columnsFrom": [
-            "bot_application_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["bot_application_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -907,9 +817,7 @@
       "compositePrimaryKeys": {
         "bot_credentials_id": {
           "name": "bot_credentials_id",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {},
@@ -1016,17 +924,12 @@
       "indexes": {
         "auth_accounts_provider_account_uq": {
           "name": "auth_accounts_provider_account_uq",
-          "columns": [
-            "provider_id",
-            "account_id"
-          ],
+          "columns": ["provider_id", "account_id"],
           "isUnique": true
         },
         "auth_accounts_user_id_idx": {
           "name": "auth_accounts_user_id_idx",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -1035,12 +938,8 @@
           "name": "auth_accounts_user_id_auth_users_id_fk",
           "tableFrom": "auth_accounts",
           "tableTo": "auth_users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1048,9 +947,7 @@
       "compositePrimaryKeys": {
         "auth_accounts_id": {
           "name": "auth_accounts_id",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {},
@@ -1122,16 +1019,12 @@
       "indexes": {
         "auth_sessions_token_uq": {
           "name": "auth_sessions_token_uq",
-          "columns": [
-            "token"
-          ],
+          "columns": ["token"],
           "isUnique": true
         },
         "auth_sessions_user_id_idx": {
           "name": "auth_sessions_user_id_idx",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -1140,12 +1033,8 @@
           "name": "auth_sessions_user_id_auth_users_id_fk",
           "tableFrom": "auth_sessions",
           "tableTo": "auth_users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1153,9 +1042,7 @@
       "compositePrimaryKeys": {
         "auth_sessions_id": {
           "name": "auth_sessions_id",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {},
@@ -1223,17 +1110,13 @@
       "compositePrimaryKeys": {
         "auth_users_id": {
           "name": "auth_users_id",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {
         "auth_users_email_unique": {
           "name": "auth_users_email_unique",
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "checkConstraint": {}
@@ -1290,9 +1173,7 @@
       "indexes": {
         "auth_verifications_identifier_idx": {
           "name": "auth_verifications_identifier_idx",
-          "columns": [
-            "identifier"
-          ],
+          "columns": ["identifier"],
           "isUnique": false
         }
       },
@@ -1300,9 +1181,7 @@
       "compositePrimaryKeys": {
         "auth_verifications_id": {
           "name": "auth_verifications_id",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {},
@@ -1378,12 +1257,8 @@
           "name": "discord_oauth_credentials_account_id_users_id_fk",
           "tableFrom": "discord_oauth_credentials",
           "tableTo": "users",
-          "columnsFrom": [
-            "account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["account_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1391,9 +1266,7 @@
       "compositePrimaryKeys": {
         "discord_oauth_credentials_account_id": {
           "name": "discord_oauth_credentials_account_id",
-          "columns": [
-            "account_id"
-          ]
+          "columns": ["account_id"]
         }
       },
       "uniqueConstraints": {},
@@ -1476,12 +1349,8 @@
           "name": "bot_runtime_status_bot_application_id_bot_applications_id_fk",
           "tableFrom": "bot_runtime_status",
           "tableTo": "bot_applications",
-          "columnsFrom": [
-            "bot_application_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["bot_application_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1489,12 +1358,8 @@
           "name": "bot_runtime_status_worker_id_workers_id_fk",
           "tableFrom": "bot_runtime_status",
           "tableTo": "workers",
-          "columnsFrom": [
-            "worker_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["worker_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -1502,9 +1367,7 @@
       "compositePrimaryKeys": {
         "bot_runtime_status_bot_application_id": {
           "name": "bot_runtime_status_bot_application_id",
-          "columns": [
-            "bot_application_id"
-          ]
+          "columns": ["bot_application_id"]
         }
       },
       "uniqueConstraints": {},

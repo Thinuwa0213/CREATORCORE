@@ -56,7 +56,10 @@ describe.skipIf(!dbAvailable)("AuditEvent database-level immutability (real data
   });
 
   it("recordAuditEvent successfully persists a row", async () => {
-    const [row] = await client.db.select().from(auditEvents).where(eq(auditEvents.targetId, targetId));
+    const [row] = await client.db
+      .select()
+      .from(auditEvents)
+      .where(eq(auditEvents.targetId, targetId));
     expect(row).toBeDefined();
     expect(row?.action).toBe("test.fixture.created");
     expect(row?.outcome).toBe("SUCCESS");
@@ -68,55 +71,71 @@ describe.skipIf(!dbAvailable)("AuditEvent database-level immutability (real data
     // the actual trigger text lives on .cause — asserted directly so this
     // proves the TRIGGER fired, not merely that something threw.
     await expect(
-      client.db.update(auditEvents).set({ outcome: "FAILURE" }).where(eq(auditEvents.targetId, targetId)),
-    ).rejects.toMatchObject({ cause: expect.objectContaining({ sqlMessage: expect.stringMatching(/immutable/i) }) });
+      client.db
+        .update(auditEvents)
+        .set({ outcome: "FAILURE" })
+        .where(eq(auditEvents.targetId, targetId)),
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ sqlMessage: expect.stringMatching(/immutable/i) }),
+    });
   });
 
   it("a raw DELETE against audit_events is rejected by the database trigger", async () => {
     await expect(
       client.db.delete(auditEvents).where(eq(auditEvents.targetId, targetId)),
-    ).rejects.toMatchObject({ cause: expect.objectContaining({ sqlMessage: expect.stringMatching(/immutable/i) }) });
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ sqlMessage: expect.stringMatching(/immutable/i) }),
+    });
   });
 
   it("the row is unchanged after both rejected mutation attempts", async () => {
-    const [row] = await client.db.select().from(auditEvents).where(eq(auditEvents.targetId, targetId));
+    const [row] = await client.db
+      .select()
+      .from(auditEvents)
+      .where(eq(auditEvents.targetId, targetId));
     expect(row?.outcome).toBe("SUCCESS");
   });
 });
 
-describe.skipIf(!dbAvailable)("audit metadata never contains secret-shaped values (real database)", () => {
-  let client: DatabaseClient;
-  const targetId = testId("audit-metadata-safety");
+describe.skipIf(!dbAvailable)(
+  "audit metadata never contains secret-shaped values (real database)",
+  () => {
+    let client: DatabaseClient;
+    const targetId = testId("audit-metadata-safety");
 
-  beforeAll(async () => {
-    client = createTestClient();
-  });
-
-  afterAll(async () => {
-    await client.close();
-  });
-
-  it("recordAuditEvent's metadata type only accepts primitive, allow-listed values — never a raw object", async () => {
-    // This is a compile-time guarantee (RecordAuditEventInput.metadata is
-    // Record<string, string | number | boolean | null>), exercised here at
-    // runtime with realistic safe fields, proving the shape that is
-    // actually usable never admits a nested request/error/token object.
-    await recordAuditEvent(client.db, {
-      actorType: "WORKER",
-      actorWorkerId: testId("worker"),
-      targetType: "Worker",
-      targetId,
-      action: "worker.auth.failure",
-      outcome: "DENIED",
-      metadata: { reason: "bootstrap_secret_invalid" },
+    beforeAll(async () => {
+      client = createTestClient();
     });
 
-    const [row] = await client.db.select().from(auditEvents).where(eq(auditEvents.targetId, targetId));
-    const metadata = JSON.stringify(row?.metadata ?? {});
-    // A representative set of secret-shaped patterns that must never appear.
-    expect(metadata).not.toMatch(/bearer\s/i);
-    expect(metadata).not.toMatch(/[A-Za-z0-9_-]{32,}\.[A-Za-z0-9_-]{20,}/); // token shape
-    expect(metadata).not.toMatch(/mysql:\/\//i);
-    expect(metadata).not.toContain("password");
-  });
-});
+    afterAll(async () => {
+      await client.close();
+    });
+
+    it("recordAuditEvent's metadata type only accepts primitive, allow-listed values — never a raw object", async () => {
+      // This is a compile-time guarantee (RecordAuditEventInput.metadata is
+      // Record<string, string | number | boolean | null>), exercised here at
+      // runtime with realistic safe fields, proving the shape that is
+      // actually usable never admits a nested request/error/token object.
+      await recordAuditEvent(client.db, {
+        actorType: "WORKER",
+        actorWorkerId: testId("worker"),
+        targetType: "Worker",
+        targetId,
+        action: "worker.auth.failure",
+        outcome: "DENIED",
+        metadata: { reason: "bootstrap_secret_invalid" },
+      });
+
+      const [row] = await client.db
+        .select()
+        .from(auditEvents)
+        .where(eq(auditEvents.targetId, targetId));
+      const metadata = JSON.stringify(row?.metadata ?? {});
+      // A representative set of secret-shaped patterns that must never appear.
+      expect(metadata).not.toMatch(/bearer\s/i);
+      expect(metadata).not.toMatch(/[A-Za-z0-9_-]{32,}\.[A-Za-z0-9_-]{20,}/); // token shape
+      expect(metadata).not.toMatch(/mysql:\/\//i);
+      expect(metadata).not.toContain("password");
+    });
+  },
+);

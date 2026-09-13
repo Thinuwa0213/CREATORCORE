@@ -20,7 +20,10 @@ import { createLogger } from "@creatorcore/logger";
 import { createApp } from "@creatorcore/api/app";
 import { CredentialService } from "@creatorcore/api/services/credential-service";
 import { DiscordValidator } from "@creatorcore/api/services/discord-validator";
-import { ControlPlaneClient, WorkerAuthRevokedError } from "../../src/client/control-plane-client.js";
+import {
+  ControlPlaneClient,
+  WorkerAuthRevokedError,
+} from "../../src/client/control-plane-client.js";
 import { AssignmentCoordinator } from "../../src/runtime/assignment-coordinator.js";
 import { BotRuntimeManager } from "../../src/runtime/bot-runtime-manager.js";
 import type { IDiscordClient } from "../../src/runtime/discord-client.js";
@@ -83,7 +86,10 @@ describe.skipIf(!dbAvailable)("Worker Runtime Real HTTP Integration (Phase 4A)",
   beforeAll(async () => {
     dbClient = createDatabaseClient(loadDatabaseConfig());
 
-    const testLogger = createLogger({ service: "apps/worker-integration-test", write: () => undefined });
+    const testLogger = createLogger({
+      service: "apps/worker-integration-test",
+      write: () => undefined,
+    });
 
     const discordValidator = new DiscordValidator({
       fetchFn: async () =>
@@ -119,19 +125,27 @@ describe.skipIf(!dbAvailable)("Worker Runtime Real HTTP Integration (Phase 4A)",
     const pB = await provisionWorker(dbClient.db, workerBId);
     secretA = pA.bootstrapSecret;
 
-
     // Create tenant and bot applications
     const tenant = await createTenant(dbClient.db, `${prefix}-tenant`);
     tenantId = tenant.id;
 
     const baseSnowflake = BigInt(Date.now()) * 1000n;
     // Both workers are active, so assignEligibleWorkers assigns both to both bot apps
-    const b1 = await createBotApplication(dbClient.db, tenantId, baseSnowflake + 1n, `${prefix}-bot1`);
+    const b1 = await createBotApplication(
+      dbClient.db,
+      tenantId,
+      baseSnowflake + 1n,
+      `${prefix}-bot1`,
+    );
     botApp1Id = b1.id;
 
-    const b2 = await createBotApplication(dbClient.db, tenantId, baseSnowflake + 2n, `${prefix}-bot-race`);
+    const b2 = await createBotApplication(
+      dbClient.db,
+      tenantId,
+      baseSnowflake + 2n,
+      `${prefix}-bot-race`,
+    );
     botAppRaceId = b2.id;
-
 
     // Real ControlPlaneClient instances pointing to the live test server
     clientA = new ControlPlaneClient({
@@ -149,7 +163,6 @@ describe.skipIf(!dbAvailable)("Worker Runtime Real HTTP Integration (Phase 4A)",
       logger: testLogger,
       requestTimeoutMs: 3000,
     });
-
   });
 
   afterAll(async () => {
@@ -222,7 +235,6 @@ describe.skipIf(!dbAvailable)("Worker Runtime Real HTTP Integration (Phase 4A)",
       logger: createLogger({ service: "test", write: () => undefined }),
     });
 
-
     // Obtains token while active
     await revokedClient.authenticate();
     expect(revokedClient.hasToken()).toBe(true);
@@ -284,7 +296,10 @@ describe.skipIf(!dbAvailable)("Worker Runtime Real HTTP Integration (Phase 4A)",
 
   // Scenario 10: Ambiguous network failure transitions runtime ownership to UNCERTAIN rather than assuming ownership
   it("10. ambiguous network failure transitions runtime ownership to UNCERTAIN, suspending privileged activity (Amendment 2)", async () => {
-    const testLogger = createLogger({ service: "apps/worker-uncertain-test", write: () => undefined });
+    const testLogger = createLogger({
+      service: "apps/worker-uncertain-test",
+      write: () => undefined,
+    });
     const coordinator = new AssignmentCoordinator({
       client: clientA,
       logger: testLogger,
@@ -459,7 +474,9 @@ describe.skipIf(!dbAvailable)("Worker Runtime Real HTTP Integration (Phase 4A)",
 
       await restartedManager.handleOwnershipChange(botApp1Id, "OWNED");
       expect(restartedManager.isRunning(botApp1Id)).toBe(true);
-      expect(restartedManager.getActiveRuntime(botApp1Id)?.credentialId).toBe(rotation.credentialId);
+      expect(restartedManager.getActiveRuntime(botApp1Id)?.credentialId).toBe(
+        rotation.credentialId,
+      );
 
       // Cleanup
       await manager.stopAll();

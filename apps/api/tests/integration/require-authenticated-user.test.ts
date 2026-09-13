@@ -68,11 +68,19 @@ describe.skipIf(!dbAvailable)("createRequireAuthenticatedUser (real MySQL)", () 
     await createUser(dbClient.db, DISCORD_ACCOUNT_ID, "Test User");
     await dbClient.pool.query(
       "INSERT INTO auth_users (id, email, email_verified, name) VALUES (?, ?, false, ?)",
-      [KNOWN_BETTER_AUTH_USER_ID, `discord-${DISCORD_ACCOUNT_ID}@users.creatorcore.internal`, "Test User"],
+      [
+        KNOWN_BETTER_AUTH_USER_ID,
+        `discord-${DISCORD_ACCOUNT_ID}@users.creatorcore.internal`,
+        "Test User",
+      ],
     );
     await dbClient.pool.query(
       "INSERT INTO auth_accounts (id, user_id, provider_id, account_id) VALUES (?, ?, 'discord', ?)",
-      [`account-${KNOWN_BETTER_AUTH_USER_ID}`, KNOWN_BETTER_AUTH_USER_ID, DISCORD_ACCOUNT_ID.toString()],
+      [
+        `account-${KNOWN_BETTER_AUTH_USER_ID}`,
+        KNOWN_BETTER_AUTH_USER_ID,
+        DISCORD_ACCOUNT_ID.toString(),
+      ],
     );
   });
 

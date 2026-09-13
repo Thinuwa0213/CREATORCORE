@@ -1,6 +1,9 @@
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
-import { createAuthPathAllowlistMiddleware, isAllowedBetterAuthPath } from "./auth-path-allowlist.js";
+import {
+  createAuthPathAllowlistMiddleware,
+  isAllowedBetterAuthPath,
+} from "./auth-path-allowlist.js";
 
 const MOUNT_PATH = "/api/auth";
 

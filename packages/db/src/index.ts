@@ -25,7 +25,10 @@ export type { User } from "./repositories/users.js";
 export { findGuildByTenantAndId, listGuildsByTenant, createGuild } from "./repositories/guilds.js";
 export type { Guild } from "./repositories/guilds.js";
 
-export { connectGuildForUser, listConnectedGuildIdsForUser } from "./repositories/guild-connections.js";
+export {
+  connectGuildForUser,
+  listConnectedGuildIdsForUser,
+} from "./repositories/guild-connections.js";
 export type { ConnectGuildResult } from "./repositories/guild-connections.js";
 
 // Shared driver-error introspection, not a schema/query access point --
@@ -139,4 +142,3 @@ export {
 // authorization decision still goes through the repository functions above,
 // keyed by CreatorCore's own users.id.
 export { authUsers, authSessions, authAccounts, authVerifications } from "./schema/index.js";
-

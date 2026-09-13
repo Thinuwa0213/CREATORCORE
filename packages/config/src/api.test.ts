@@ -70,9 +70,9 @@ describe("loadApiConfig", () => {
     });
 
     it("rejects a key shorter than 32 characters", () => {
-      expect(() =>
-        loadApiConfig({ ...VALID_ENV, WORKER_TOKEN_SIGNING_KEY: "too-short" }),
-      ).toThrow(ConfigValidationError);
+      expect(() => loadApiConfig({ ...VALID_ENV, WORKER_TOKEN_SIGNING_KEY: "too-short" })).toThrow(
+        ConfigValidationError,
+      );
     });
 
     it("never includes the signing key value in a thrown error message", () => {
@@ -124,9 +124,9 @@ describe("loadApiConfig", () => {
     });
 
     it("rejects arbitrary passphrases or wrong lengths", () => {
-      expect(() =>
-        loadApiConfig({ ...VALID_ENV, BOT_CREDENTIAL_ENCRYPTION_KEY: "short" }),
-      ).toThrow(ConfigValidationError);
+      expect(() => loadApiConfig({ ...VALID_ENV, BOT_CREDENTIAL_ENCRYPTION_KEY: "short" })).toThrow(
+        ConfigValidationError,
+      );
       expect(() =>
         loadApiConfig({
           ...VALID_ENV,
@@ -372,4 +372,3 @@ describe("loadApiConfig", () => {
     });
   });
 });
-

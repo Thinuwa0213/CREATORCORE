@@ -27,7 +27,9 @@ export interface WorkerAuthDeps {
 export function createWorkerAuthMiddleware(deps: WorkerAuthDeps): MiddlewareHandler<WorkerAuthEnv> {
   return async (c, next) => {
     const authHeader = c.req.header("authorization");
-    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : undefined;
+    const token = authHeader?.startsWith("Bearer ")
+      ? authHeader.slice("Bearer ".length)
+      : undefined;
 
     if (!token) {
       await recordAuditEvent(deps.db, {

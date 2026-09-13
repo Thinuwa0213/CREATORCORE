@@ -41,9 +41,10 @@ export async function recordRuntimeStatus(
     async (tx) => {
       const [assignment] = await tx
         .select({
-          leaseIsLive: sql<number>`(${workerAssignments.status} = 'ACTIVE' and ${workerAssignments.leaseExpiresAt} > now())`.as(
-            "lease_is_live",
-          ),
+          leaseIsLive:
+            sql<number>`(${workerAssignments.status} = 'ACTIVE' and ${workerAssignments.leaseExpiresAt} > now())`.as(
+              "lease_is_live",
+            ),
         })
         .from(workerAssignments)
         .where(

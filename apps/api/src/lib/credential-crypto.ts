@@ -69,10 +69,7 @@ export class CredentialEncryptionError extends Error {
  * Cryptographically binds ciphertext to the specific botApplicationId, credentialId,
  * and keyVersion so ciphertext cannot be transplanted across records.
  */
-function buildAuthContextBuffer(
-  context: CredentialAuthContext,
-  keyVersion: number,
-): Buffer {
+function buildAuthContextBuffer(context: CredentialAuthContext, keyVersion: number): Buffer {
   const domain = "creatorcore:bot_credential:v1";
   return Buffer.from(
     `${domain}|${context.botApplicationId}|${context.credentialId}|${keyVersion}`,
@@ -144,11 +141,7 @@ function resolveDecryptionKey(
   throw new CredentialDecryptionError(`Unknown or unconfigured key version: ${keyVersion}`);
 }
 
-function decryptEnvelope(
-  encrypted: EncryptedCredentialPayload,
-  aad: Buffer,
-  key: Buffer,
-): string {
+function decryptEnvelope(encrypted: EncryptedCredentialPayload, aad: Buffer, key: Buffer): string {
   if (key.length !== 32) {
     throw new CredentialDecryptionError("Selected encryption key must be exactly 32 bytes");
   }

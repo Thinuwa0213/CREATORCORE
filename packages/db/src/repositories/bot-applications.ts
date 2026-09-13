@@ -86,7 +86,9 @@ export async function createBotApplicationPendingEligibility(
   await db.insert(botApplications).values({ id, tenantId, discordApplicationId, name });
   const created = await findBotApplicationByTenantAndId(db, tenantId, id);
   if (!created) {
-    throw new Error("createBotApplicationPendingEligibility: row not found immediately after insert");
+    throw new Error(
+      "createBotApplicationPendingEligibility: row not found immediately after insert",
+    );
   }
   return created;
 }

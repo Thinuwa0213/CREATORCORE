@@ -15,11 +15,7 @@ export async function findUserById(db: Db, userId: bigint): Promise<User | undef
   return row;
 }
 
-export async function createUser(
-  db: Db,
-  userId: bigint,
-  discordUsername?: string,
-): Promise<User> {
+export async function createUser(db: Db, userId: bigint, discordUsername?: string): Promise<User> {
   await db.insert(users).values({ id: userId, discordUsername: discordUsername ?? null });
   const created = await findUserById(db, userId);
   if (!created) {

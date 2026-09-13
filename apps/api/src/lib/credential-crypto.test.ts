@@ -50,27 +50,21 @@ describe("credential-crypto (AES-256-GCM + AAD)", () => {
     const encrypted = encryptBotCredential(token, context, KEYS);
     encrypted.ciphertext[0] = (encrypted.ciphertext[0] ?? 0) ^ 1; // Flip a bit
 
-    expect(() => decryptBotCredential(encrypted, context, KEYS)).toThrow(
-      CredentialDecryptionError,
-    );
+    expect(() => decryptBotCredential(encrypted, context, KEYS)).toThrow(CredentialDecryptionError);
   });
 
   it("fails decryption if nonce is tampered", () => {
     const encrypted = encryptBotCredential(token, context, KEYS);
     encrypted.nonce[0] = (encrypted.nonce[0] ?? 0) ^ 1;
 
-    expect(() => decryptBotCredential(encrypted, context, KEYS)).toThrow(
-      CredentialDecryptionError,
-    );
+    expect(() => decryptBotCredential(encrypted, context, KEYS)).toThrow(CredentialDecryptionError);
   });
 
   it("fails decryption if authTag is tampered", () => {
     const encrypted = encryptBotCredential(token, context, KEYS);
     encrypted.authTag[0] = (encrypted.authTag[0] ?? 0) ^ 1;
 
-    expect(() => decryptBotCredential(encrypted, context, KEYS)).toThrow(
-      CredentialDecryptionError,
-    );
+    expect(() => decryptBotCredential(encrypted, context, KEYS)).toThrow(CredentialDecryptionError);
   });
 
   it("fails decryption if AAD context is transplanted to another botApplicationId", () => {
@@ -154,9 +148,7 @@ describe("credential-crypto (AES-256-GCM + AAD)", () => {
   });
 
   it("rejects empty token on encryption", () => {
-    expect(() => encryptBotCredential("", context, KEYS)).toThrow(
-      CredentialEncryptionError,
-    );
+    expect(() => encryptBotCredential("", context, KEYS)).toThrow(CredentialEncryptionError);
   });
 });
 
@@ -168,7 +160,10 @@ describe("discord OAuth-token encryption (Amendment 1 — separate key domain)",
     currentVersion: 1,
   };
   const oauthContext = { accountId: 123456789012345678n };
-  const payload = JSON.stringify({ accessToken: "discord-access", refreshToken: "discord-refresh" });
+  const payload = JSON.stringify({
+    accessToken: "discord-access",
+    refreshToken: "discord-refresh",
+  });
 
   it("encrypts and decrypts an OAuth token payload correctly", () => {
     const encrypted = encryptDiscordOauthCredential(payload, oauthContext, OAUTH_KEYS);
@@ -183,9 +178,9 @@ describe("discord OAuth-token encryption (Amendment 1 — separate key domain)",
     const encrypted = encryptDiscordOauthCredential(payload, oauthContext, OAUTH_KEYS);
     const foreignContext = { accountId: 999999999999999999n };
 
-    expect(() =>
-      decryptDiscordOauthCredential(encrypted, foreignContext, OAUTH_KEYS),
-    ).toThrow(CredentialDecryptionError);
+    expect(() => decryptDiscordOauthCredential(encrypted, foreignContext, OAUTH_KEYS)).toThrow(
+      CredentialDecryptionError,
+    );
   });
 
   it("a bot-credential ciphertext cannot be decrypted as a Discord OAuth credential, even with numerically matching key bytes", () => {

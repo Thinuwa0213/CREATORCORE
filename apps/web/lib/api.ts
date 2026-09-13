@@ -24,7 +24,10 @@ export interface SessionData {
 export async function getServerSession(): Promise<SessionData | null> {
   const { API_INTERNAL_URL } = loadWebServerConfig();
   const cookieStore = await cookies();
-  const cookieHeader = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join("; ");
+  const cookieHeader = cookieStore
+    .getAll()
+    .map((c) => `${c.name}=${c.value}`)
+    .join("; ");
 
   if (!cookieHeader) {
     return null;
@@ -70,7 +73,10 @@ export async function callApiServer<T = unknown>(
   const method = options.method ?? "GET";
   const forwardHeaders = new Headers();
 
-  const cookieStr = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join("; ");
+  const cookieStr = cookieStore
+    .getAll()
+    .map((c) => `${c.name}=${c.value}`)
+    .join("; ");
   if (cookieStr) {
     forwardHeaders.set("cookie", cookieStr);
   }

@@ -1,5 +1,11 @@
 import { and, asc, eq, isNull, lte, or, sql } from "drizzle-orm";
-import { botApplications, tenants, workerAssignments, workerEligibility, workers } from "../schema/index.js";
+import {
+  botApplications,
+  tenants,
+  workerAssignments,
+  workerEligibility,
+  workers,
+} from "../schema/index.js";
 import type { Db } from "../types.js";
 import { findWorkerById } from "./workers.js";
 
@@ -126,4 +132,3 @@ export async function listClaimableWorkForWorker(
     claimable: true as const,
   }));
 }
-

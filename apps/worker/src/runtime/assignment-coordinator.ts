@@ -40,12 +40,12 @@ export class AssignmentCoordinator {
   private readonly renewalIntervalMs: number;
   private readonly reconciliationIntervalMs: number;
   private readonly releaseTimeoutMs: number;
-  private readonly onOwnershipChange?: ((botApplicationId: string, state: OwnershipState) => Promise<void> | void) | undefined;
+  private readonly onOwnershipChange?:
+    ((botApplicationId: string, state: OwnershipState) => Promise<void> | void) | undefined;
 
   private readonly assignments = new Map<string, TrackedAssignment>();
   private discoveryTimer?: NodeJS.Timeout | undefined;
   private running = false;
-
 
   constructor(options: AssignmentCoordinatorOptions) {
     this.client = options.client;

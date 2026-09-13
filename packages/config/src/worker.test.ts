@@ -43,4 +43,3 @@ describe("loadWorkerConfig", () => {
     expect(config).not.toHaveProperty("DATABASE_URL");
   });
 });
-

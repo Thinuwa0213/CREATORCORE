@@ -8,7 +8,13 @@ import {
   type DatabaseClient,
   type Tenant,
 } from "../../src/index.js";
-import { cleanupTenant, createTestClient, probeDatabase, randomSnowflake, testId } from "./helpers.js";
+import {
+  cleanupTenant,
+  createTestClient,
+  probeDatabase,
+  randomSnowflake,
+  testId,
+} from "./helpers.js";
 
 /**
  * Cross-guild isolation (docs/TESTING.md scenario 4): a caller supplying a
@@ -43,13 +49,33 @@ describe.skipIf(!dbAvailable)("cross-guild isolation (real database)", () => {
     tenant = await createTenant(client.db, testId("tenant-guild-iso"));
     otherTenant = await createTenant(client.db, testId("tenant-guild-iso-other"));
 
-    const guildOne = await createGuild(client.db, tenant.id, randomSnowflake(), testId("guild-one"));
-    const guildTwo = await createGuild(client.db, tenant.id, randomSnowflake(), testId("guild-two"));
+    const guildOne = await createGuild(
+      client.db,
+      tenant.id,
+      randomSnowflake(),
+      testId("guild-one"),
+    );
+    const guildTwo = await createGuild(
+      client.db,
+      tenant.id,
+      randomSnowflake(),
+      testId("guild-two"),
+    );
     guildOneId = guildOne.id;
     guildTwoId = guildTwo.id;
 
-    const botOne = await createBotApplication(client.db, tenant.id, randomSnowflake(), testId("bot-one"));
-    const botTwo = await createBotApplication(client.db, tenant.id, randomSnowflake(), testId("bot-two"));
+    const botOne = await createBotApplication(
+      client.db,
+      tenant.id,
+      randomSnowflake(),
+      testId("bot-one"),
+    );
+    const botTwo = await createBotApplication(
+      client.db,
+      tenant.id,
+      randomSnowflake(),
+      testId("bot-two"),
+    );
     botOneId = botOne.id;
     botTwoId = botTwo.id;
 

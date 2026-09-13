@@ -260,7 +260,9 @@ export class BotRuntimeManager {
         });
 
         // Inform control plane to remove the bad pending credential
-        await this.client.rejectRotation(botApplicationId, credentialId, reason).catch(() => undefined);
+        await this.client
+          .rejectRotation(botApplicationId, credentialId, reason)
+          .catch(() => undefined);
         return { ok: false, reason: "validation_failed" };
       }
 

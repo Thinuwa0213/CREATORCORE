@@ -41,7 +41,9 @@ export async function resolveBotApplicationForGuild(
         eq(botApplications.tenantId, tenantId),
       ),
     )
-    .where(and(eq(guildBotAssignments.guildId, guildId), eq(guildBotAssignments.tenantId, tenantId)))
+    .where(
+      and(eq(guildBotAssignments.guildId, guildId), eq(guildBotAssignments.tenantId, tenantId)),
+    )
     .limit(1);
   return row;
 }

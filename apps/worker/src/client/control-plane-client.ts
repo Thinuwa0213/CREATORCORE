@@ -52,7 +52,6 @@ export class WorkerAuthRevokedError extends Error {
   }
 }
 
-
 /**
  * Thrown when communication with the control-plane encounters an ambiguous
  * network or server failure (timeout, network drop, HTTP 5xx) after exhausting retries.
@@ -64,7 +63,6 @@ export class ControlPlaneTransportError extends Error {
     this.name = "ControlPlaneTransportError";
   }
 }
-
 
 /**
  * Internal API client for apps/worker (docs/adr/0011).
@@ -161,10 +159,7 @@ export class ControlPlaneClient {
             attempts: attempt,
             error: error instanceof Error ? error.message : String(error),
           });
-          throw new ControlPlaneTransportError(
-            `Exchange failed after ${attempt} attempts`,
-            error,
-          );
+          throw new ControlPlaneTransportError(`Exchange failed after ${attempt} attempts`, error);
         }
 
         await this.sleepWithBackoff(attempt);
@@ -355,7 +350,6 @@ export class ControlPlaneClient {
     path: string,
     action: "claim" | "renew" | "release",
   ): Promise<ClaimResult> {
-
     try {
       const data = await this.requestWithAuth<{
         botApplicationId?: string;
@@ -468,7 +462,10 @@ export class ControlPlaneClient {
 }
 
 export class HttpError extends Error {
-  constructor(public readonly status: number, public readonly errorBody?: { error?: string }) {
+  constructor(
+    public readonly status: number,
+    public readonly errorBody?: { error?: string },
+  ) {
     super(`HTTP ${status}`);
     this.name = "HttpError";
   }

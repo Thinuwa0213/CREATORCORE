@@ -143,7 +143,11 @@ test.describe("CreatorCore Phase 5 Browser Flow & E2E Suite", () => {
     expect(sessionStorageHasToken).toBe(false);
   });
 
-  test("3. Access control: cross-tenant access is forbidden", async ({ page, context, request }) => {
+  test("3. Access control: cross-tenant access is forbidden", async ({
+    page,
+    context,
+    request,
+  }) => {
     const discordUserId = `93${String(Date.now()).padStart(16, "0").slice(-16)}`;
 
     // Bootstrap user session
@@ -170,5 +174,210 @@ test.describe("CreatorCore Phase 5 Browser Flow & E2E Suite", () => {
     await page.goto("/tenants/foreign-tenant-uuid/guilds/9999999999");
     await expect(page.locator("#access-denied-container")).toBeVisible();
     await expect(page.locator("#access-denied-message")).toBeVisible();
+  });
+
+  test("4. Phase 6A Dashboard Shell: renders truthful navigation, theme toggle, and no internal phase labels", async ({
+    page,
+    context,
+    request,
+  }) => {
+    const runId = String(Date.now());
+    const discordUserId = `94${runId.padStart(16, "0").slice(-16)}`;
+    const testGuildId = `95${runId.padStart(16, "0").slice(-16)}`;
+    const testGuildName = "CreatorCore Community Lab";
+
+    // Bootstrap test guild & session
+    await request.post(`${API_BASE_URL}/internal/test/discord/guilds`, {
+      data: {
+        discordUserId,
+        guilds: [{ id: testGuildId, name: testGuildName }],
+      },
+    });
+
+    const sessionRes = await request.post(`${API_BASE_URL}/internal/test/session`, {
+      data: {
+        discordUserId,
+        name: "Dashboard Shell Tester",
+      },
+    });
+    const sessionData = await sessionRes.json();
+
+    await context.addCookies([
+      {
+        name: "better-auth.session_token",
+        value: sessionData.cookieValue,
+        domain: "localhost",
+        path: "/",
+        httpOnly: true,
+        sameSite: "Lax",
+      },
+    ]);
+
+    // Connect guild first
+    await page.goto("/guilds");
+    await page.locator(`#connect-guild-button-${testGuildId}`).click();
+    await expect(page).toHaveURL(new RegExp(`/tenants/[^/]+/guilds/${testGuildId}$`));
+
+    // 1. Shell renders desktop sidebar
+    const sidebar = page.locator("#app-sidebar");
+    await expect(sidebar).toBeVisible();
+
+    // 2. Brand wordmark is visible, and NO internal phase labels exist in DOM (Amendment 1)
+    const sidebarText = await sidebar.innerText();
+    expect(sidebarText.includes("CreatorCore")).toBe(true);
+    expect(sidebarText.includes("Phase 1")).toBe(false);
+    expect(sidebarText.includes("Phase 5")).toBe(false);
+    expect(sidebarText.includes("Phase 6")).toBe(false);
+    expect(sidebarText.includes("Gate")).toBe(false);
+
+    // 3. Truthful navigation links exist and work
+    const overviewLink = page.locator("#nav-guild-overview");
+    const setupLink = page.locator("#nav-bot-setup");
+    await expect(overviewLink).toBeVisible();
+    await expect(setupLink).toBeVisible();
+
+    // Navigate to bot configuration via sidebar
+    await setupLink.click();
+    await expect(page).toHaveURL(new RegExp(`/tenants/[^/]+/guilds/${testGuildId}/setup$`));
+    await expect(page.locator("#bot-setup-form")).toBeVisible();
+
+    // Navigate back to overview via sidebar
+    await page.locator("#nav-guild-overview").click();
+    await expect(page).toHaveURL(new RegExp(`/tenants/[^/]+/guilds/${testGuildId}$`));
+    await expect(page.locator("#guild-overview-card")).toBeVisible();
+
+    // 4. Header breadcrumbs and theme toggle
+    await expect(page.locator('button[data-sidebar="trigger"]')).toBeVisible();
+    const themeBtn = page.locator("#theme-toggle-btn");
+    await expect(themeBtn).toBeVisible();
+
+    // Toggle theme: verify HTML class changes
+    await themeBtn.click();
+    await expect(page.locator("html")).toHaveClass(/dark/);
+    await themeBtn.click();
+    await expect(page.locator("html")).toHaveClass(/light/);
+  });
+
+  test("5. Phase 6A Guild Switcher: displays only authorized connected guilds and links to discovery", async ({
+    page,
+    context,
+    request,
+  }) => {
+    const runId = String(Date.now());
+    const discordUserId = `96${runId.padStart(16, "0").slice(-16)}`;
+    const connectedGuildId = `97${runId.padStart(16, "0").slice(-16)}`;
+    const unconnectedGuildId = `98${runId.padStart(16, "0").slice(-16)}`;
+
+    // Set up two guilds in Discord: one to be connected, one left unconnected
+    await request.post(`${API_BASE_URL}/internal/test/discord/guilds`, {
+      data: {
+        discordUserId,
+        guilds: [
+          { id: connectedGuildId, name: "Connected Server Hub" },
+          { id: unconnectedGuildId, name: "Unconnected Server" },
+        ],
+      },
+    });
+
+    const sessionRes = await request.post(`${API_BASE_URL}/internal/test/session`, {
+      data: {
+        discordUserId,
+        name: "Switcher Tester",
+      },
+    });
+    const sessionData = await sessionRes.json();
+
+    await context.addCookies([
+      {
+        name: "better-auth.session_token",
+        value: sessionData.cookieValue,
+        domain: "localhost",
+        path: "/",
+        httpOnly: true,
+        sameSite: "Lax",
+      },
+    ]);
+
+    // Connect only the first guild
+    await page.goto("/guilds");
+    await page.locator(`#connect-guild-button-${connectedGuildId}`).click();
+    await expect(page).toHaveURL(new RegExp(`/tenants/[^/]+/guilds/${connectedGuildId}$`));
+
+    // Open guild switcher dropdown
+    const switcherTrigger = page.locator("#guild-switcher-trigger");
+    await expect(switcherTrigger).toBeVisible();
+    await expect(page.locator("#active-guild-name")).toHaveText("Connected Server Hub");
+    await switcherTrigger.click();
+
+    // Check dropdown content (Amendment 2):
+    // 1. Current connected guild is listed
+    await expect(page.getByRole("menuitem", { name: /Connected Server Hub/i })).toBeVisible();
+
+    // 2. Unconnected guild is NOT in the switcher dropdown
+    await expect(page.getByRole("menuitem", { name: /Unconnected Server/i })).toHaveCount(0);
+
+    // 3. Action to navigate to /guilds for discovery/connect is present
+    const manageLink = page.locator("#manage-connect-servers-link");
+    await expect(manageLink).toBeVisible();
+    await manageLink.click();
+    await expect(page).toHaveURL("http://localhost:3000/guilds");
+  });
+
+  test("6. Phase 6A Mobile Responsive: drawer navigation works on mobile viewport", async ({
+    page,
+    context,
+    request,
+  }) => {
+    const runId = String(Date.now());
+    const discordUserId = `99${runId.padStart(16, "0").slice(-16)}`;
+    const testGuildId = `90${runId.padStart(16, "0").slice(-16)}`;
+
+    await request.post(`${API_BASE_URL}/internal/test/discord/guilds`, {
+      data: {
+        discordUserId,
+        guilds: [{ id: testGuildId, name: "Mobile Discord Guild" }],
+      },
+    });
+
+    const sessionRes = await request.post(`${API_BASE_URL}/internal/test/session`, {
+      data: {
+        discordUserId,
+        name: "Mobile Tester",
+      },
+    });
+    const sessionData = await sessionRes.json();
+
+    await context.addCookies([
+      {
+        name: "better-auth.session_token",
+        value: sessionData.cookieValue,
+        domain: "localhost",
+        path: "/",
+        httpOnly: true,
+        sameSite: "Lax",
+      },
+    ]);
+
+    // Set mobile viewport (iPhone 12 / 13)
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    // Connect guild and open overview
+    await page.goto("/guilds");
+    await page.locator(`#connect-guild-button-${testGuildId}`).click();
+    await expect(page).toHaveURL(new RegExp(`/tenants/[^/]+/guilds/${testGuildId}$`));
+
+    // Desktop sidebar should be hidden on mobile
+    await expect(page.locator("#app-sidebar")).toHaveCount(0);
+
+    // Click mobile sidebar trigger
+    const trigger = page.locator('button[data-sidebar="trigger"]');
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+
+    // Drawer sheet should open with mobile nav
+    const mobileSheet = page.locator('div[data-sidebar="sidebar"][data-mobile="true"]');
+    await expect(mobileSheet).toBeVisible();
+    await expect(mobileSheet.locator("#nav-guild-overview")).toBeVisible();
+    await expect(mobileSheet.locator("#nav-bot-setup")).toBeVisible();
   });
 });

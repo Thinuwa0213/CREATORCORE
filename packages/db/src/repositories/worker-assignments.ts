@@ -19,8 +19,7 @@ export interface WorkerAssignment {
 
 export type ClaimFailureReason = "WORKER_NOT_ACTIVE" | "NOT_ELIGIBLE" | "LEASE_HELD_BY_OTHER";
 export type ClaimResult =
-  | { ok: true; assignment: WorkerAssignment }
-  | { ok: false; reason: ClaimFailureReason };
+  { ok: true; assignment: WorkerAssignment } | { ok: false; reason: ClaimFailureReason };
 
 /**
  * Both the requesting worker's live status and its eligibility for this
@@ -122,9 +121,10 @@ export async function claimAssignment(
           // Computed entirely in SQL against the database's own NOW() -- see
           // this function's doc comment (M2). mysql2 returns this boolean
           // expression as 0/1.
-          leaseIsLive: sql<number>`(${workerAssignments.status} = 'ACTIVE' and ${workerAssignments.leaseExpiresAt} > now())`.as(
-            "lease_is_live",
-          ),
+          leaseIsLive:
+            sql<number>`(${workerAssignments.status} = 'ACTIVE' and ${workerAssignments.leaseExpiresAt} > now())`.as(
+              "lease_is_live",
+            ),
         })
         .from(workerAssignments)
         .where(eq(workerAssignments.botApplicationId, botApplicationId))
@@ -261,4 +261,3 @@ export async function listActiveAssignmentsForWorker(
       ),
     );
 }
-

@@ -35,10 +35,11 @@ export interface WorkerAssignmentRoutesDeps extends WorkerAuthDeps {
  * released ONLY when the database confirms the authenticated worker owns
  * an active lease on the requested BotApplication.
  */
-export function createWorkerAssignmentRoutes(deps: WorkerAssignmentRoutesDeps): Hono<WorkerAuthEnv> {
+export function createWorkerAssignmentRoutes(
+  deps: WorkerAssignmentRoutesDeps,
+): Hono<WorkerAuthEnv> {
   const route = new Hono<WorkerAuthEnv>();
   route.use("*", createWorkerAuthMiddleware(deps));
-
 
   route.get("/eligible", async (c) => {
     const workerId = c.get("workerId");
@@ -245,4 +246,3 @@ export function createWorkerAssignmentRoutes(deps: WorkerAssignmentRoutesDeps): 
 
   return route;
 }
-

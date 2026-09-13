@@ -17,10 +17,7 @@ import type { BotOnboardingService } from "./services/bot-onboarding-service.js"
 
 import type { CredentialService } from "./services/credential-service.js";
 import type { FakeDiscordGuildProvider } from "./discord/fake-discord-guild-provider.js";
-import {
-  createTestHarnessRoutes,
-  isTestHarnessEnabled,
-} from "./routes/internal/test-harness.js";
+import { createTestHarnessRoutes, isTestHarnessEnabled } from "./routes/internal/test-harness.js";
 
 const BETTER_AUTH_MOUNT_PATH = "/api/auth";
 

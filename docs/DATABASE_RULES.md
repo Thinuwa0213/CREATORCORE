@@ -59,4 +59,3 @@ Database credentials are server-side secrets only, injected via environment vari
 - **Single Authoritative Active Credential:**
   - At most one `ACTIVE` credential may exist per `bot_application_id`.
   - Promotion of `PENDING` to `ACTIVE` must occur inside a database transaction that simultaneously deletes superseded credentials.
-

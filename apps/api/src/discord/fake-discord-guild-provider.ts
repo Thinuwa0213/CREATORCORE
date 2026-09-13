@@ -1,4 +1,8 @@
-import { DiscordUnavailableError, type DiscordGuildProvider, type ManageableGuild } from "./types.js";
+import {
+  DiscordUnavailableError,
+  type DiscordGuildProvider,
+  type ManageableGuild,
+} from "./types.js";
 
 /**
  * Deterministic test double (task §29) — no real Discord calls in CI.

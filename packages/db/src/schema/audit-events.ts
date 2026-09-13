@@ -1,4 +1,13 @@
-import { bigint, char, index, json, mysqlEnum, mysqlTable, timestamp, varchar } from "drizzle-orm/mysql-core";
+import {
+  bigint,
+  char,
+  index,
+  json,
+  mysqlEnum,
+  mysqlTable,
+  timestamp,
+  varchar,
+} from "drizzle-orm/mysql-core";
 
 /**
  * Append-only record of privileged/security-sensitive actions (docs/adr/0006,

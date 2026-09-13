@@ -107,7 +107,10 @@ export class CredentialService {
         outcome: "DENIED",
         metadata: { reason: validation.reason },
       });
-      this.logger.warn("credential.validation_failed", { botApplicationId, reason: validation.reason });
+      this.logger.warn("credential.validation_failed", {
+        botApplicationId,
+        reason: validation.reason,
+      });
       return { ok: false, reason: validation.reason };
     }
 
@@ -144,7 +147,10 @@ export class CredentialService {
         outcome: "DENIED",
         metadata: { reason: pendingResult.reason },
       });
-      this.logger.warn("credential.rotation_failed", { botApplicationId, reason: pendingResult.reason });
+      this.logger.warn("credential.rotation_failed", {
+        botApplicationId,
+        reason: pendingResult.reason,
+      });
       return { ok: false, reason: pendingResult.reason };
     }
 
@@ -169,11 +175,7 @@ export class CredentialService {
     workerId: string,
     botApplicationId: string,
   ): Promise<DecryptedCredentialResult | null> {
-    const credRow = await getActiveCredentialForAssignedWorker(
-      this.db,
-      workerId,
-      botApplicationId,
-    );
+    const credRow = await getActiveCredentialForAssignedWorker(this.db, workerId, botApplicationId);
 
     if (!credRow) {
       await recordAuditEvent(this.db, {
@@ -306,7 +308,12 @@ export class CredentialService {
         outcome: "DENIED",
         metadata: { credentialId, reason: result.reason ?? "failed" },
       });
-      this.logger.warn("credential.rotation_failed", { workerId, botApplicationId, credentialId, reason: result.reason });
+      this.logger.warn("credential.rotation_failed", {
+        workerId,
+        botApplicationId,
+        credentialId,
+        reason: result.reason,
+      });
       return result;
     }
 

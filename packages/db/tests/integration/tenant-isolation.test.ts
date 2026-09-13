@@ -11,7 +11,13 @@ import {
   type DatabaseClient,
   type Tenant,
 } from "../../src/index.js";
-import { cleanupTenant, createTestClient, probeDatabase, randomSnowflake, testId } from "./helpers.js";
+import {
+  cleanupTenant,
+  createTestClient,
+  probeDatabase,
+  randomSnowflake,
+  testId,
+} from "./helpers.js";
 
 /**
  * Cross-tenant isolation (docs/TESTING.md, docs/SECURITY.md's primary
@@ -82,9 +88,7 @@ describe.skipIf(!dbAvailable)("cross-tenant isolation (real database)", () => {
       testId("bot-a-for-cross-tenant-attempt"),
     );
 
-    await expect(
-      reassignBotForGuild(client.db, tenantA.id, guildBId, botA.id),
-    ).rejects.toThrow();
+    await expect(reassignBotForGuild(client.db, tenantA.id, guildBId, botA.id)).rejects.toThrow();
 
     // Confirm Tenant B's real assignment is untouched by the rejected attempt.
     const stillB = await resolveBotApplicationForGuild(client.db, tenantB.id, guildBId);
@@ -92,68 +96,73 @@ describe.skipIf(!dbAvailable)("cross-tenant isolation (real database)", () => {
   });
 });
 
-describe.skipIf(!dbAvailable)("disabled tenants cannot perform privileged operations (real database)", () => {
-  let client: DatabaseClient;
-  let tenant: Tenant;
-  let guildId: bigint;
-  let botAId: string;
-  let botBId: string;
+describe.skipIf(!dbAvailable)(
+  "disabled tenants cannot perform privileged operations (real database)",
+  () => {
+    let client: DatabaseClient;
+    let tenant: Tenant;
+    let guildId: bigint;
+    let botAId: string;
+    let botBId: string;
 
-  beforeAll(async () => {
-    client = createTestClient();
-    tenant = await createTenant(client.db, testId("tenant-disabled"));
+    beforeAll(async () => {
+      client = createTestClient();
+      tenant = await createTenant(client.db, testId("tenant-disabled"));
 
-    // Created while the tenant is still ACTIVE, so there is a real guild and
-    // a real second BotApplication to attempt reassignment onto once the
-    // tenant is disabled below (Phase 3 review finding M1).
-    const guild = await createGuild(client.db, tenant.id, randomSnowflake(), testId("guild-for-disabled-tenant"));
-    guildId = guild.id;
-    const botA = await createBotApplication(
-      client.db,
-      tenant.id,
-      randomSnowflake(),
-      testId("bot-a-for-disabled-tenant"),
-    );
-    botAId = botA.id;
-    const botB = await createBotApplication(
-      client.db,
-      tenant.id,
-      randomSnowflake(),
-      testId("bot-b-for-disabled-tenant"),
-    );
-    botBId = botB.id;
-    await reassignBotForGuild(client.db, tenant.id, guildId, botAId);
-
-    await disableTenant(client.db, tenant.id);
-  });
-
-  afterAll(async () => {
-    await cleanupTenant(client.db, tenant.id);
-    await client.close();
-  });
-
-  it("cannot create a Guild under a disabled tenant", async () => {
-    await expect(
-      createGuild(client.db, tenant.id, randomSnowflake(), testId("guild-under-disabled")),
-    ).rejects.toThrow(/not active/i);
-  });
-
-  it("cannot create a BotApplication under a disabled tenant", async () => {
-    await expect(
-      createBotApplication(
+      // Created while the tenant is still ACTIVE, so there is a real guild and
+      // a real second BotApplication to attempt reassignment onto once the
+      // tenant is disabled below (Phase 3 review finding M1).
+      const guild = await createGuild(
         client.db,
         tenant.id,
         randomSnowflake(),
-        testId("bot-under-disabled"),
-      ),
-    ).rejects.toThrow(/not active/i);
-  });
+        testId("guild-for-disabled-tenant"),
+      );
+      guildId = guild.id;
+      const botA = await createBotApplication(
+        client.db,
+        tenant.id,
+        randomSnowflake(),
+        testId("bot-a-for-disabled-tenant"),
+      );
+      botAId = botA.id;
+      const botB = await createBotApplication(
+        client.db,
+        tenant.id,
+        randomSnowflake(),
+        testId("bot-b-for-disabled-tenant"),
+      );
+      botBId = botB.id;
+      await reassignBotForGuild(client.db, tenant.id, guildId, botAId);
 
-  it("cannot reassign a guild's BotApplication under a disabled tenant (Phase 3 review finding M1)", async () => {
-    await expect(reassignBotForGuild(client.db, tenant.id, guildId, botBId)).rejects.toThrow(/not active/i);
+      await disableTenant(client.db, tenant.id);
+    });
 
-    // Confirm the original assignment survives the rejected attempt.
-    const stillAssigned = await resolveBotApplicationForGuild(client.db, tenant.id, guildId);
-    expect(stillAssigned?.botApplicationId).toBe(botAId);
-  });
-});
+    afterAll(async () => {
+      await cleanupTenant(client.db, tenant.id);
+      await client.close();
+    });
+
+    it("cannot create a Guild under a disabled tenant", async () => {
+      await expect(
+        createGuild(client.db, tenant.id, randomSnowflake(), testId("guild-under-disabled")),
+      ).rejects.toThrow(/not active/i);
+    });
+
+    it("cannot create a BotApplication under a disabled tenant", async () => {
+      await expect(
+        createBotApplication(client.db, tenant.id, randomSnowflake(), testId("bot-under-disabled")),
+      ).rejects.toThrow(/not active/i);
+    });
+
+    it("cannot reassign a guild's BotApplication under a disabled tenant (Phase 3 review finding M1)", async () => {
+      await expect(reassignBotForGuild(client.db, tenant.id, guildId, botBId)).rejects.toThrow(
+        /not active/i,
+      );
+
+      // Confirm the original assignment survives the rejected attempt.
+      const stillAssigned = await resolveBotApplicationForGuild(client.db, tenant.id, guildId);
+      expect(stillAssigned?.botApplicationId).toBe(botAId);
+    });
+  },
+);

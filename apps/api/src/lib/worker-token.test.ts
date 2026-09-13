@@ -1,6 +1,10 @@
 import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { issueWorkerAccessToken, verifyWorkerAccessToken, type WorkerTokenSigningKeys } from "./worker-token.js";
+import {
+  issueWorkerAccessToken,
+  verifyWorkerAccessToken,
+  type WorkerTokenSigningKeys,
+} from "./worker-token.js";
 
 /**
  * Direct unit coverage for the worker access-token verifier (Phase 3 review
@@ -18,7 +22,9 @@ import { issueWorkerAccessToken, verifyWorkerAccessToken, type WorkerTokenSignin
 const CONTEXT_STRING = "creatorcore-worker-access-token-v1";
 
 function sign(payloadSegment: string, key: string): string {
-  return createHmac("sha256", key).update(`${CONTEXT_STRING}.${payloadSegment}`).digest("base64url");
+  return createHmac("sha256", key)
+    .update(`${CONTEXT_STRING}.${payloadSegment}`)
+    .digest("base64url");
 }
 
 function encodePayload(payload: unknown): string {
@@ -127,13 +133,19 @@ describe("issueWorkerAccessToken / verifyWorkerAccessToken", () => {
   it("rejects a malformed (non-object) payload", () => {
     const payloadSegment = encodePayload([1, 2, 3]);
     const token = `${payloadSegment}.${sign(payloadSegment, KEY)}`;
-    expect(verifyWorkerAccessToken(token, keys())).toEqual({ ok: false, reason: "malformed_payload_shape" });
+    expect(verifyWorkerAccessToken(token, keys())).toEqual({
+      ok: false,
+      reason: "malformed_payload_shape",
+    });
   });
 
   it("rejects a payload that isn't valid JSON", () => {
     const payloadSegment = Buffer.from("not-json{{{", "utf8").toString("base64url");
     const token = `${payloadSegment}.${sign(payloadSegment, KEY)}`;
-    expect(verifyWorkerAccessToken(token, keys())).toEqual({ ok: false, reason: "malformed_payload_json" });
+    expect(verifyWorkerAccessToken(token, keys())).toEqual({
+      ok: false,
+      reason: "malformed_payload_json",
+    });
   });
 
   it("rejects a token with the wrong number of segments", () => {
@@ -141,7 +153,10 @@ describe("issueWorkerAccessToken / verifyWorkerAccessToken", () => {
       ok: false,
       reason: "malformed_token_shape",
     });
-    expect(verifyWorkerAccessToken("a.b.c", keys())).toEqual({ ok: false, reason: "malformed_token_shape" });
+    expect(verifyWorkerAccessToken("a.b.c", keys())).toEqual({
+      ok: false,
+      reason: "malformed_token_shape",
+    });
   });
 
   it("rejects a token with an empty segment", () => {

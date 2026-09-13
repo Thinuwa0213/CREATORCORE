@@ -28,9 +28,7 @@ import {
 
 const dbAvailable = await probeDatabase();
 if (!dbAvailable) {
-  console.warn(
-    "[packages/db] bot-credentials integration test SKIPPED — no reachable database.",
-  );
+  console.warn("[packages/db] bot-credentials integration test SKIPPED — no reachable database.");
 }
 
 describe.skipIf(!dbAvailable)("bot-credentials repository & authorization (real MySQL)", () => {
@@ -80,13 +78,13 @@ describe.skipIf(!dbAvailable)("bot-credentials repository & authorization (real 
 
     expect(cred.id).toBeDefined();
     expect(cred.status).toBe("ACTIVE");
-    expect(Buffer.isBuffer(cred.ciphertext) || Buffer.isBuffer(Buffer.from(cred.ciphertext))).toBe(true);
+    expect(Buffer.isBuffer(cred.ciphertext) || Buffer.isBuffer(Buffer.from(cred.ciphertext))).toBe(
+      true,
+    );
     expect(cred.keyVersion).toBe(1);
 
     // Direct SQL inspection: verify only ciphertext, nonce, and auth_tag exist, no plaintext token column
-    const [raw] = await client.db.execute(
-      sql`select * from bot_credentials where id = ${cred.id}`,
-    );
+    const [raw] = await client.db.execute(sql`select * from bot_credentials where id = ${cred.id}`);
     const rows = raw as unknown as Record<string, unknown>[];
     const row = rows[0];
     expect(row).toBeDefined();
@@ -112,11 +110,7 @@ describe.skipIf(!dbAvailable)("bot-credentials repository & authorization (real 
     expect(claimRes.ok).toBe(true);
 
     // After claim: worker A can access the active credential
-    const allowed = await getActiveCredentialForAssignedWorker(
-      client.db,
-      workerAId,
-      botAppId,
-    );
+    const allowed = await getActiveCredentialForAssignedWorker(client.db, workerAId, botAppId);
     expect(allowed).toBeDefined();
     expect(allowed?.status).toBe("ACTIVE");
     expect(allowed?.botApplicationId).toBe(botAppId);
@@ -348,11 +342,7 @@ describe.skipIf(!dbAvailable)("bot-credentials repository & authorization (real 
     });
 
     it("promotePendingCredential atomically promotes to ACTIVE and deletes superseded credential", async () => {
-      const oldActive = await getActiveCredentialForAssignedWorker(
-        client.db,
-        workerAId,
-        botAppId,
-      );
+      const oldActive = await getActiveCredentialForAssignedWorker(client.db, workerAId, botAppId);
       expect(oldActive).toBeDefined();
 
       const pending = await createPendingCredential(client.db, {
@@ -374,11 +364,7 @@ describe.skipIf(!dbAvailable)("bot-credentials repository & authorization (real 
       expect(promoteRes.ok).toBe(true);
 
       // Active credential is now the promoted one
-      const newActive = await getActiveCredentialForAssignedWorker(
-        client.db,
-        workerAId,
-        botAppId,
-      );
+      const newActive = await getActiveCredentialForAssignedWorker(client.db, workerAId, botAppId);
       expect(newActive?.id).toBe(pending.credential.id);
       expect(newActive?.activatedAt).toBeDefined();
 

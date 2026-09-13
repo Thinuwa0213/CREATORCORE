@@ -33,8 +33,5 @@ export const botCredentials = mysqlTable(
     activatedAt: timestamp("activated_at"),
     supersededAt: timestamp("superseded_at"),
   },
-  (table) => [
-    index("bot_credentials_app_status_idx").on(table.botApplicationId, table.status),
-  ],
+  (table) => [index("bot_credentials_app_status_idx").on(table.botApplicationId, table.status)],
 );
-

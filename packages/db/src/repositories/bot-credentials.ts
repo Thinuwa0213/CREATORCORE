@@ -53,11 +53,7 @@ export async function createInitialActiveCredential(
     activatedAt: sql`now()`,
   });
 
-  const [row] = await db
-    .select()
-    .from(botCredentials)
-    .where(eq(botCredentials.id, id))
-    .limit(1);
+  const [row] = await db.select().from(botCredentials).where(eq(botCredentials.id, id)).limit(1);
 
   if (!row) {
     throw new Error("createInitialActiveCredential: row not found after insert");
@@ -108,11 +104,7 @@ export async function createPendingCredential(
       createdAt: sql`now()`,
     });
 
-    const [row] = await tx
-      .select()
-      .from(botCredentials)
-      .where(eq(botCredentials.id, id))
-      .limit(1);
+    const [row] = await tx.select().from(botCredentials).where(eq(botCredentials.id, id)).limit(1);
 
     if (!row) {
       throw new Error("createPendingCredential: row not found after insert");
@@ -247,9 +239,10 @@ export async function promotePendingCredential(
       // 1. Authoritative lease check inside transaction with FOR UPDATE
       const [assignment] = await tx
         .select({
-          leaseIsLive: sql<number>`(${workerAssignments.status} = 'ACTIVE' and ${workerAssignments.leaseExpiresAt} > now())`.as(
-            "lease_is_live",
-          ),
+          leaseIsLive:
+            sql<number>`(${workerAssignments.status} = 'ACTIVE' and ${workerAssignments.leaseExpiresAt} > now())`.as(
+              "lease_is_live",
+            ),
         })
         .from(workerAssignments)
         .innerJoin(workers, eq(workers.id, workerAssignments.workerId))
@@ -341,9 +334,10 @@ export async function rejectPendingCredential(
     async (tx) => {
       const [assignment] = await tx
         .select({
-          leaseIsLive: sql<number>`(${workerAssignments.status} = 'ACTIVE' and ${workerAssignments.leaseExpiresAt} > now())`.as(
-            "lease_is_live",
-          ),
+          leaseIsLive:
+            sql<number>`(${workerAssignments.status} = 'ACTIVE' and ${workerAssignments.leaseExpiresAt} > now())`.as(
+              "lease_is_live",
+            ),
         })
         .from(workerAssignments)
         .innerJoin(workers, eq(workers.id, workerAssignments.workerId))

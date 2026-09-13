@@ -9,7 +9,11 @@ import {
   type DiscordOauthTokenEncryptionKeys,
 } from "../lib/credential-crypto.js";
 import { hasGuildManagePermission } from "./permissions.js";
-import { DiscordUnavailableError, type DiscordGuildProvider, type ManageableGuild } from "./types.js";
+import {
+  DiscordUnavailableError,
+  type DiscordGuildProvider,
+  type ManageableGuild,
+} from "./types.js";
 
 interface DiscordGuildApiRow {
   id: string;
@@ -148,7 +152,8 @@ export class HttpDiscordGuildProvider implements DiscordGuildProvider {
 
     const stored = this.decryptStoredPayload(userId, credential);
     const isFresh =
-      credential.expiresAt !== null && credential.expiresAt.getTime() - REFRESH_SKEW_MS > Date.now();
+      credential.expiresAt !== null &&
+      credential.expiresAt.getTime() - REFRESH_SKEW_MS > Date.now();
 
     if (isFresh || !stored.refreshToken) {
       return stored.accessToken;
@@ -162,14 +167,19 @@ export class HttpDiscordGuildProvider implements DiscordGuildProvider {
         { accountId: userId },
         this.keys,
       );
-      const { ok } = await replaceDiscordOauthCredentialIfUnchanged(this.db, userId, credential.updatedAt, {
-        accountId: userId,
-        ciphertext: encrypted.ciphertext,
-        nonce: encrypted.nonce,
-        authTag: encrypted.authTag,
-        keyVersion: encrypted.keyVersion,
-        expiresAt: new Date(Date.now() + refreshed.expires_in * 1000),
-      });
+      const { ok } = await replaceDiscordOauthCredentialIfUnchanged(
+        this.db,
+        userId,
+        credential.updatedAt,
+        {
+          accountId: userId,
+          ciphertext: encrypted.ciphertext,
+          nonce: encrypted.nonce,
+          authTag: encrypted.authTag,
+          keyVersion: encrypted.keyVersion,
+          expiresAt: new Date(Date.now() + refreshed.expires_in * 1000),
+        },
+      );
       if (ok) {
         return refreshed.access_token;
       }
@@ -218,7 +228,9 @@ export class HttpDiscordGuildProvider implements DiscordGuildProvider {
     }
 
     if (!response.ok) {
-      throw new DiscordUnavailableError(`Discord token refresh failed with status ${response.status}`);
+      throw new DiscordUnavailableError(
+        `Discord token refresh failed with status ${response.status}`,
+      );
     }
 
     return (await response.json()) as DiscordRefreshResponse;

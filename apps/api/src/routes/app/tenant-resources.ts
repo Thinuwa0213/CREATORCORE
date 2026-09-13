@@ -73,7 +73,9 @@ function respondToAuthorizationError(c: Context, error: unknown): Response | und
  * anything else. Origin/CSRF check and session resolution run first on
  * every request, before any of that authorization work.
  */
-export function createTenantResourceRoutes(deps: TenantResourceRoutesDeps): Hono<AuthenticatedUserEnv> {
+export function createTenantResourceRoutes(
+  deps: TenantResourceRoutesDeps,
+): Hono<AuthenticatedUserEnv> {
   const route = new Hono<AuthenticatedUserEnv>();
   route.use("*", createOriginCheckMiddleware(deps.webAppOrigin));
   route.use("*", createRequireAuthenticatedUser({ auth: deps.auth, db: deps.db }));
@@ -115,7 +117,8 @@ export function createTenantResourceRoutes(deps: TenantResourceRoutesDeps): Hono
     if (!token) {
       return c.json({ error: "invalid_request" }, 400);
     }
-    const name = typeof body.name === "string" && body.name.trim().length > 0 ? body.name.trim() : guild.name;
+    const name =
+      typeof body.name === "string" && body.name.trim().length > 0 ? body.name.trim() : guild.name;
 
     const result = await deps.botOnboardingService.onboardBotApplication({
       userId,
@@ -178,8 +181,7 @@ export function createTenantResourceRoutes(deps: TenantResourceRoutesDeps): Hono
         action: "credential.action_denied",
         outcome: "DENIED",
         metadata: {
-          reason:
-            lastError instanceof AuthorizationError ? lastError.code : "GUILD_ACCESS_DENIED",
+          reason: lastError instanceof AuthorizationError ? lastError.code : "GUILD_ACCESS_DENIED",
         },
       });
       if (lastError instanceof DiscordUnavailableError) {

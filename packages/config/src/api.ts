@@ -32,7 +32,9 @@ export const apiConfigSchema = z
     NODE_ENV: z.enum(["development", "test", "staging", "production"]).default("development"),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
     PORT: z.coerce.number().int().positive().default(8787),
-    WORKER_TOKEN_SIGNING_KEY: z.string().min(32, "WORKER_TOKEN_SIGNING_KEY must be at least 32 characters"),
+    WORKER_TOKEN_SIGNING_KEY: z
+      .string()
+      .min(32, "WORKER_TOKEN_SIGNING_KEY must be at least 32 characters"),
     WORKER_TOKEN_SIGNING_KEY_VERSION: z.coerce.number().int().positive().default(1),
     WORKER_TOKEN_SIGNING_KEY_PREVIOUS: z.string().min(32).optional(),
     BOT_CREDENTIAL_ENCRYPTION_KEY: z.string({
@@ -62,7 +64,11 @@ export const apiConfigSchema = z
     }),
     DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_VERSION: z.coerce.number().int().positive().default(1),
     DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS: z.string().optional(),
-    DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS_VERSION: z.coerce.number().int().positive().optional(),
+    DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS_VERSION: z.coerce
+      .number()
+      .int()
+      .positive()
+      .optional(),
   })
   .extend(databaseConfigSchema.shape)
   .superRefine((data, ctx) => {
@@ -137,7 +143,8 @@ export const apiConfigSchema = z
     const hasDiscordPrevKey =
       data.DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS !== undefined &&
       data.DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS !== "";
-    const hasDiscordPrevVer = data.DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS_VERSION !== undefined;
+    const hasDiscordPrevVer =
+      data.DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS_VERSION !== undefined;
 
     if (hasDiscordPrevKey !== hasDiscordPrevVer) {
       ctx.addIssue({
@@ -181,7 +188,10 @@ export const apiConfigSchema = z
     // the two "current" values).
     const discordKeyDomainValues: [string, string | undefined][] = [
       ["DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY", data.DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY],
-      ["DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS", data.DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS],
+      [
+        "DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS",
+        data.DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS,
+      ],
     ];
     const otherSecretDomainValues: [string, string | undefined][] = [
       ["BOT_CREDENTIAL_ENCRYPTION_KEY", data.BOT_CREDENTIAL_ENCRYPTION_KEY],
@@ -215,4 +225,3 @@ export type ApiConfig = z.infer<typeof apiConfigSchema>;
 export function loadApiConfig(source: Record<string, string | undefined> = process.env): ApiConfig {
   return loadConfig("apps/api", apiConfigSchema, source);
 }
-

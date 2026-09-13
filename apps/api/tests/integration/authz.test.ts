@@ -83,7 +83,12 @@ describe.skipIf(!dbAvailable)("apps/api/src/authz (real MySQL, IDOR suite)", () 
     guildAId = testSnowflake();
     await createGuild(dbClient.db, tenantAId, guildAId, testId("guild-a"));
 
-    const botAppA = await createBotApplication(dbClient.db, tenantAId, testSnowflake(), testId("bot-a"));
+    const botAppA = await createBotApplication(
+      dbClient.db,
+      tenantAId,
+      testSnowflake(),
+      testId("bot-a"),
+    );
     botApplicationAId = botAppA.id;
 
     const tenantB = await createTenant(dbClient.db, testId("tenant-authz-b"));
@@ -92,13 +97,21 @@ describe.skipIf(!dbAvailable)("apps/api/src/authz (real MySQL, IDOR suite)", () 
     guildBId = testSnowflake();
     await createGuild(dbClient.db, tenantBId, guildBId, testId("guild-b"));
 
-    const botAppB = await createBotApplication(dbClient.db, tenantBId, testSnowflake(), testId("bot-b"));
+    const botAppB = await createBotApplication(
+      dbClient.db,
+      tenantBId,
+      testSnowflake(),
+      testId("bot-b"),
+    );
     botApplicationBId = botAppB.id;
   });
 
   afterAll(async () => {
     await dbClient.pool.query("DELETE FROM tenants WHERE id IN (?, ?)", [tenantAId, tenantBId]);
-    await dbClient.pool.query("DELETE FROM users WHERE id IN (?, ?)", [memberUserId, outsiderUserId]);
+    await dbClient.pool.query("DELETE FROM users WHERE id IN (?, ?)", [
+      memberUserId,
+      outsiderUserId,
+    ]);
     await dbClient.close();
   });
 
@@ -109,9 +122,9 @@ describe.skipIf(!dbAvailable)("apps/api/src/authz (real MySQL, IDOR suite)", () 
     });
 
     it("denies a user with no membership row", async () => {
-      await expect(requireTenantMembership(dbClient.db, outsiderUserId, tenantAId)).rejects.toMatchObject(
-        { code: "TENANT_MEMBERSHIP_REQUIRED" },
-      );
+      await expect(
+        requireTenantMembership(dbClient.db, outsiderUserId, tenantAId),
+      ).rejects.toMatchObject({ code: "TENANT_MEMBERSHIP_REQUIRED" });
     });
 
     it("denies membership in a disabled tenant, without distinguishing the reason", async () => {
@@ -137,18 +150,18 @@ describe.skipIf(!dbAvailable)("apps/api/src/authz (real MySQL, IDOR suite)", () 
       // The caller supplies tenantBId (as if forged in a request body) but
       // is only ever a member of tenant A -- must be denied at the
       // membership check, before the guild lookup even runs.
-      await expect(requireGuildAccess(dbClient.db, memberUserId, tenantBId, guildBId)).rejects.toMatchObject(
-        { code: "TENANT_MEMBERSHIP_REQUIRED" },
-      );
+      await expect(
+        requireGuildAccess(dbClient.db, memberUserId, tenantBId, guildBId),
+      ).rejects.toMatchObject({ code: "TENANT_MEMBERSHIP_REQUIRED" });
     });
 
     it("denies access when the guildId does not belong to the authorized tenant, even with real membership", async () => {
       // memberUserId legitimately belongs to tenant A, but guildB belongs
       // to tenant B -- the tenant+guild pairing itself must be checked, not
       // just "is this guildId real" or "is this user a member of some tenant".
-      await expect(requireGuildAccess(dbClient.db, memberUserId, tenantAId, guildBId)).rejects.toMatchObject(
-        { code: "GUILD_ACCESS_DENIED" },
-      );
+      await expect(
+        requireGuildAccess(dbClient.db, memberUserId, tenantAId, guildBId),
+      ).rejects.toMatchObject({ code: "GUILD_ACCESS_DENIED" });
     });
 
     it("denies a non-member outright", async () => {
