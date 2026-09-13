@@ -77,6 +77,8 @@ jobs:
       # CI-only, disposable test credentials — never shared with staging/production
       # (docs/DEVELOPMENT.md's environment-separation rule).
       DATABASE_URL: mysql://creatorcore:creatorcore_test_password@127.0.0.1:3306/creatorcore_test
+      # CI-only disposable worker-token signing key (docs/adr/0011) — apps/api only.
+      WORKER_TOKEN_SIGNING_KEY: creatorcore-ci-disposable-worker-token-signing-key-not-a-real-secret
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

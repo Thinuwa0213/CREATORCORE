@@ -17,4 +17,12 @@ describe("loadWorkerConfig", () => {
     const fieldNames = Object.keys(workerConfigSchema.shape);
     expect(fieldNames.some((name) => name.startsWith("DB_"))).toBe(false);
   });
+
+  it("never exposes WORKER_TOKEN_SIGNING_KEY — the worker receives only an issued access token, never the signing key (docs/adr/0011)", () => {
+    const fieldNames = Object.keys(workerConfigSchema.shape);
+    expect(fieldNames).not.toContain("WORKER_TOKEN_SIGNING_KEY");
+
+    const config = loadWorkerConfig({ WORKER_TOKEN_SIGNING_KEY: "e".repeat(32) });
+    expect(config).not.toHaveProperty("WORKER_TOKEN_SIGNING_KEY");
+  });
 });

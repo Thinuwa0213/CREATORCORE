@@ -2,10 +2,9 @@ import { defineConfig } from "drizzle-kit";
 import { loadDatabaseConfig } from "@creatorcore/config/database";
 
 /**
- * drizzle-kit is wired for real, but src/schema.ts defines zero tables
- * (docs/adr/0006 locks the conceptual model only, not a physical schema —
- * see README.md). Running `db:generate` against an empty schema produces no
- * migrations, which is the honest Phase 2 state, not a placeholder.
+ * drizzle-kit is pointed at src/schema/index.ts, the Phase 3 physical
+ * schema barrel (docs/adr/0006 locks the conceptual model; this is its
+ * first physical implementation — see README.md).
  *
  * The URL comes from the same @creatorcore/config schema apps/api uses —
  * not a second, independently-maintained copy of the contract (a
@@ -24,7 +23,7 @@ function resolveDatabaseUrl(): string {
 
 export default defineConfig({
   dialect: "mysql",
-  schema: "./src/schema.ts",
+  schema: "./src/schema/index.ts",
   out: "./drizzle",
   dbCredentials: {
     url: resolveDatabaseUrl(),

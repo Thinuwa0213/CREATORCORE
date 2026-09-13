@@ -1,7 +1,7 @@
 import mysql from "mysql2/promise";
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import type { DatabaseConfig } from "@creatorcore/config";
-import * as schema from "./schema.js";
+import * as schema from "./schema/index.js";
 
 export interface DatabaseClient {
   /** Raw mysql2 pool — do not export this further; use `db` or add a scoped repository function. */
@@ -25,9 +25,23 @@ export interface DatabaseClient {
  * to a utf8mb4 charset — docs/DATABASE_RULES.md's locked engine charset —
  * when none is specified), so this package does not maintain a second,
  * competing parse of the same URL.
+ *
+ * `supportBigNumbers: true` is required, not optional, for Discord
+ * snowflake exact precision (Phase 3 schema: guilds.id, users.id,
+ * bot_applications.discord_application_id, etc. — all `bigint unsigned`).
+ * Without it, mysql2 silently returns any BIGINT value exceeding
+ * Number.MAX_SAFE_INTEGER as an imprecise JS `number` before Drizzle ever
+ * sees it — Drizzle's own `bigint({mode:'bigint'})` mapper only converts
+ * whatever driver value it is handed, so it cannot recover precision
+ * mysql2 already lost. With this flag, mysql2 returns any value that
+ * doesn't fit in a safe JS number as a string instead, which Drizzle's
+ * bigint mapper correctly parses into a native `bigint`. Deliberately NOT
+ * pairing this with `bigNumberStrings: true` — that would also stringify
+ * ordinary small integers (e.g. bot_credentials.keyVersion), which several
+ * schema columns intentionally use `bigint({mode:'number'})`/`int()` for.
  */
 export function createDatabaseClient(config: DatabaseConfig): DatabaseClient {
-  const pool = mysql.createPool(config.DATABASE_URL);
+  const pool = mysql.createPool({ uri: config.DATABASE_URL, supportBigNumbers: true });
 
   const db = drizzle(pool, { schema, casing: "snake_case", mode: "default" });
 

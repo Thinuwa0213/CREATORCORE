@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Controlled MySQL/Drizzle data-access boundary for apps/api (docs/adr/0004-orm-data-layer.md). No product schema yet — connection, readiness, and migration-tooling foundation only.",
+  "description": "Controlled MySQL/Drizzle data-access boundary for apps/api (docs/adr/0004-orm-data-layer.md). Phase 3: physical schema, repository layer, and WorkerAssignment claim mechanism for docs/adr/0006's multi-tenant model.",
   "license": "UNLICENSED",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

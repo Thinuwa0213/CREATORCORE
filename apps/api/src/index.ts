@@ -4,6 +4,7 @@ import { loadApiConfig } from "@creatorcore/config/api";
 import { createLogger } from "@creatorcore/logger";
 import { createDatabaseClient, checkDatabaseConnectivity } from "@creatorcore/db";
 import { createApp } from "./app.js";
+import type { WorkerTokenSigningKeys } from "./lib/worker-token.js";
 
 function bootstrap() {
   let config;
@@ -21,9 +22,22 @@ function bootstrap() {
   const logger = createLogger({ service: "apps/api", level: config.LOG_LEVEL });
   const dbClient = createDatabaseClient(config);
 
+  // exactOptionalPropertyTypes: `previous` must be omitted entirely when
+  // unset, never assigned an explicit `undefined` (which is not the same
+  // thing under this tsconfig setting).
+  const signingKeys: WorkerTokenSigningKeys = {
+    current: config.WORKER_TOKEN_SIGNING_KEY,
+    currentVersion: config.WORKER_TOKEN_SIGNING_KEY_VERSION,
+    ...(config.WORKER_TOKEN_SIGNING_KEY_PREVIOUS !== undefined
+      ? { previous: config.WORKER_TOKEN_SIGNING_KEY_PREVIOUS }
+      : {}),
+  };
+
   const app = createApp({
     logger,
+    db: dbClient.db,
     checkDatabaseReady: () => checkDatabaseConnectivity(dbClient.pool),
+    signingKeys,
   });
 
   const server = serve({ fetch: app.fetch, port: config.PORT }, (info) => {

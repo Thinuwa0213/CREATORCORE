@@ -1,15 +1,33 @@
 import { describe, expect, it, vi } from "vitest";
 import { createLogger } from "@creatorcore/logger";
+import type { DatabaseClient } from "@creatorcore/db";
 import { createApp } from "./app.js";
+import type { WorkerTokenSigningKeys } from "./lib/worker-token.js";
 
 function testLogger() {
   return createLogger({ service: "apps/api-test", write: () => undefined });
 }
 
+// These tests exercise only /health, /ready, /does-not-exist -- never a
+// /internal/* route -- so `db` is never actually queried and a placeholder
+// is safe. Real /internal/* behavior is covered by real-MySQL integration
+// tests (apps/api/tests/integration/) per docs/DATABASE_RULES.md's rule
+// against substituting a mock for the isolation/authorization guarantee.
+const FAKE_DB = {} as DatabaseClient["db"];
+const FAKE_SIGNING_KEYS: WorkerTokenSigningKeys = {
+  current: "test-only-signing-key-not-a-real-secret-value",
+  currentVersion: 1,
+};
+
 describe("GET /health", () => {
   it("returns ok without checking the database", async () => {
     const checkDatabaseReady = vi.fn();
-    const app = createApp({ logger: testLogger(), checkDatabaseReady });
+    const app = createApp({
+      logger: testLogger(),
+      db: FAKE_DB,
+      signingKeys: FAKE_SIGNING_KEYS,
+      checkDatabaseReady,
+    });
 
     const res = await app.request("/health");
 
@@ -23,6 +41,8 @@ describe("GET /ready", () => {
   it("returns 200 and ready:true when the database is reachable", async () => {
     const app = createApp({
       logger: testLogger(),
+      db: FAKE_DB,
+      signingKeys: FAKE_SIGNING_KEYS,
       checkDatabaseReady: async () => true,
     });
 
@@ -35,6 +55,8 @@ describe("GET /ready", () => {
   it("returns 503 and ready:false when the database is unreachable, with no leaked details", async () => {
     const app = createApp({
       logger: testLogger(),
+      db: FAKE_DB,
+      signingKeys: FAKE_SIGNING_KEYS,
       checkDatabaseReady: async () => false,
     });
 
@@ -51,6 +73,8 @@ describe("error handling", () => {
   it("returns a generic 500 and never leaks the thrown error's message in the HTTP response", async () => {
     const app = createApp({
       logger: testLogger(),
+      db: FAKE_DB,
+      signingKeys: FAKE_SIGNING_KEYS,
       checkDatabaseReady: async () => {
         throw new Error("connection string: mysql://admin:leaked-secret@db-host/prod");
       },
@@ -88,7 +112,12 @@ describe("error handling", () => {
 
 describe("unmatched routes", () => {
   it("returns a safe 404", async () => {
-    const app = createApp({ logger: testLogger(), checkDatabaseReady: async () => true });
+    const app = createApp({
+      logger: testLogger(),
+      db: FAKE_DB,
+      signingKeys: FAKE_SIGNING_KEYS,
+      checkDatabaseReady: async () => true,
+    });
 
     const res = await app.request("/does-not-exist");
 

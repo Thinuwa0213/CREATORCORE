@@ -35,6 +35,8 @@ describe.skipIf(!dbAvailable)("GET /ready against a real database", () => {
     const client = createDatabaseClient(loadDatabaseConfig());
     const app = createApp({
       logger: createLogger({ service: "apps/api-integration-test", write: () => undefined }),
+      db: client.db,
+      signingKeys: { current: "integration-test-only-signing-key-not-a-real-secret", currentVersion: 1 },
       checkDatabaseReady: () => checkDatabaseConnectivity(client.pool),
     });
 
