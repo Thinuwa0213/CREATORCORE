@@ -88,6 +88,7 @@ describe.skipIf(!dbAvailable)("worker credential delivery and rotation lifecycle
     credentialService = new CredentialService({
       db: dbClient.db,
       keys: {
+        keyDomain: "bot_credential",
         current: ENCRYPTION_KEY_BYTES,
         currentVersion: 1,
       },

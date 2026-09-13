@@ -17,6 +17,22 @@ export interface RotationResult {
 }
 
 /**
+ * A short, safe category for the runtime-status report — never the raw
+ * error message (docs/DISCORD_RULES.md: never persist/transmit raw Discord
+ * error text).
+ */
+function classifyStartupError(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  if (message.includes("timed out")) {
+    return "READY_TIMEOUT";
+  }
+  if (message.toLowerCase().includes("token")) {
+    return "LOGIN_REJECTED";
+  }
+  return "STARTUP_FAILED";
+}
+
+/**
  * Manages active Discord bot runtimes and the rotation validation lifecycle.
  *
  * Security & Architectural Invariants:
@@ -102,14 +118,45 @@ export class BotRuntimeManager {
         botApplicationId,
         credentialId: cred.credentialId,
       });
+      this.reportStatus(botApplicationId, {
+        state: "READY",
+        connectedAt: new Date().toISOString(),
+      });
       return true;
     } catch (err) {
       this.logger.warn("failed to start active bot runtime", {
         botApplicationId,
         error: err instanceof Error ? err.message : String(err),
       });
+      this.reportStatus(botApplicationId, {
+        state: "ERROR",
+        errorCategory: classifyStartupError(err),
+      });
       return false;
     }
+  }
+
+  /**
+   * Fire-and-forget runtime-health report — never allowed to throw into a
+   * caller whose job is running the bot, not reporting on it (this
+   * client's own `reportRuntimeStatus` already swallows a 403/not-current-
+   * owner outcome; this also absorbs any remaining transport failure).
+   */
+  private reportStatus(
+    botApplicationId: string,
+    report: {
+      state: "STARTING" | "READY" | "ERROR" | "STOPPED";
+      connectedAt?: string;
+      errorCategory?: string;
+    },
+  ): void {
+    this.client.reportRuntimeStatus(botApplicationId, report).catch((error: unknown) => {
+      this.logger.warn("runtime-status report failed", {
+        botApplicationId,
+        state: report.state,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
   }
 
   /**
@@ -142,6 +189,11 @@ export class BotRuntimeManager {
         await activeRuntime.stop();
         this.activeRuntimes.delete(botApplicationId);
       }
+
+      // Best-effort: if this worker's own lease is what was lost, the
+      // control plane's ownership check rejects this report harmlessly
+      // (403) rather than overwriting a new owner's fresher status.
+      this.reportStatus(botApplicationId, { state: "STOPPED" });
     }
   }
 

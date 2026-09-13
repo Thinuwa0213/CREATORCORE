@@ -16,3 +16,6 @@ export * from "./worker-eligibility.js";
 export * from "./worker-assignments.js";
 export * from "./audit-events.js";
 export * from "./bot-credentials.js";
+export * from "./auth.js";
+export * from "./discord-oauth-credentials.js";
+export * from "./bot-runtime-status.js";

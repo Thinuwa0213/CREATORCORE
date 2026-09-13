@@ -53,3 +53,40 @@ export async function createBotApplication(
   }
   return created;
 }
+
+/**
+ * Inserts a BotApplication WITHOUT assigning worker eligibility -- the one
+ * deliberate exception to createBotApplication's "never exists without an
+ * eligibility decision" invariant above, used only by Phase 5's bot
+ * onboarding orchestration (apps/api/src/services/bot-onboarding-service.ts).
+ *
+ * That orchestrator needs BotApplication creation, ACTIVE credential
+ * persistence, and guild attachment to commit as one atomic transaction
+ * before a worker can ever discover this BotApplication (task Amendment 3:
+ * "A BotApplication must never become worker-discoverable unless its
+ * required ACTIVE credential and guild relationship have been committed
+ * successfully") -- so it calls `assignEligibleWorkers` itself, explicitly,
+ * as the last step inside that same transaction, once the credential and
+ * guild attachment are already staged. Every other existing caller keeps
+ * using `createBotApplication` above unchanged; this function is additive,
+ * not a replacement.
+ *
+ * `id` may be supplied so the caller can pre-generate it outside the
+ * transaction (needed to bind the credential's AAD to the BotApplication id
+ * before either row is written -- see the onboarding service).
+ */
+export async function createBotApplicationPendingEligibility(
+  db: Db,
+  tenantId: string,
+  discordApplicationId: bigint,
+  name: string,
+  id: string = randomUUID(),
+): Promise<BotApplication> {
+  await assertTenantActive(db, tenantId);
+  await db.insert(botApplications).values({ id, tenantId, discordApplicationId, name });
+  const created = await findBotApplicationByTenantAndId(db, tenantId, id);
+  if (!created) {
+    throw new Error("createBotApplicationPendingEligibility: row not found immediately after insert");
+  }
+  return created;
+}

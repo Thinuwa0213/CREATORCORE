@@ -213,4 +213,83 @@ describe("ControlPlaneClient", () => {
       expect(result.reason).toBe("claim_denied");
     }
   });
+
+  describe("reportRuntimeStatus (Phase 5, task §19)", () => {
+    it("reports runtime status successfully when server responds 200", async () => {
+      const fetchMock = vi.fn(async (url: string) => {
+        if (url.endsWith("/internal/workers/exchange")) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ accessToken: "test-token" }),
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ ok: true }),
+        };
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const client = new ControlPlaneClient({
+        apiBaseUrl,
+        workerId,
+        bootstrapSecret,
+        logger: mockLogger,
+      });
+
+      const res = await client.reportRuntimeStatus("bot-app-1", {
+        state: "READY",
+        connectedAt: "2026-09-13T10:00:00.000Z",
+      });
+
+      expect(res.ok).toBe(true);
+      expect(fetchMock).toHaveBeenCalledWith(
+        "http://localhost:8787/internal/bot-runtime-status/bot-app-1",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({
+            Authorization: "Bearer test-token",
+            "Content-Type": "application/json",
+          }),
+          body: JSON.stringify({
+            state: "READY",
+            connectedAt: "2026-09-13T10:00:00.000Z",
+          }),
+        }),
+      );
+    });
+
+    it("swallows 403 (worker no longer owns lease) and returns { ok: false }", async () => {
+      const fetchMock = vi.fn(async (url: string) => {
+        if (url.endsWith("/internal/workers/exchange")) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ accessToken: "test-token" }),
+          };
+        }
+        return {
+          ok: false,
+          status: 403,
+          json: async () => ({ error: "not_current_owner" }),
+        };
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const client = new ControlPlaneClient({
+        apiBaseUrl,
+        workerId,
+        bootstrapSecret,
+        logger: mockLogger,
+      });
+
+      const res = await client.reportRuntimeStatus("bot-app-1", {
+        state: "STOPPED",
+      });
+
+      expect(res.ok).toBe(false);
+    });
+  });
 });

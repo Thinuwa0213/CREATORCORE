@@ -38,6 +38,7 @@ const SIGNING_KEYS = {
 };
 
 const ENCRYPTION_KEYS = {
+  keyDomain: "bot_credential" as const,
   current: randomBytes(32),
   currentVersion: 1,
 };

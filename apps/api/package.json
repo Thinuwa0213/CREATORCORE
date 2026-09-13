@@ -38,6 +38,7 @@
     "@creatorcore/db": "workspace:*",
     "@creatorcore/logger": "workspace:*",
     "@hono/node-server": "^2.1.1",
+    "better-auth": "1.7.4",
     "hono": "^4.13.7",
     "zod": "^4.6.2"
   },

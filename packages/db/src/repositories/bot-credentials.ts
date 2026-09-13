@@ -400,3 +400,43 @@ export async function findActiveCredential(
 
   return row as BotCredentialRow | undefined;
 }
+
+export interface CredentialStatusSummary {
+  status: "PENDING" | "ACTIVE" | "SUPERSEDED";
+  keyVersion: number;
+  updatedAt: Date;
+}
+
+/**
+ * Tenant-scoped, status-only read for the dashboard's runtime-status page
+ * (task §18) — never selects `ciphertext`/`nonce`/`authTag`, so it is
+ * structurally incapable of leaking credential material even by mistake.
+ * `findByTenantAndId`-shaped (docs/DATABASE_RULES.md): both `tenantId` and
+ * `botApplicationId` are required, joined through `bot_applications` so a
+ * caller cannot read another tenant's credential status by guessing a
+ * `botApplicationId`.
+ */
+export async function findCredentialStatusForTenantBotApplication(
+  db: Db,
+  tenantId: string,
+  botApplicationId: string,
+): Promise<CredentialStatusSummary | undefined> {
+  const [row] = await db
+    .select({
+      status: botCredentials.status,
+      keyVersion: botCredentials.keyVersion,
+      updatedAt: botCredentials.updatedAt,
+    })
+    .from(botCredentials)
+    .innerJoin(botApplications, eq(botApplications.id, botCredentials.botApplicationId))
+    .where(
+      and(
+        eq(botApplications.tenantId, tenantId),
+        eq(botCredentials.botApplicationId, botApplicationId),
+        eq(botCredentials.status, "ACTIVE"),
+      ),
+    )
+    .limit(1);
+
+  return row;
+}

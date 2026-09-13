@@ -8,17 +8,19 @@
     "build": "next build",
     "typecheck": "tsc --noEmit",
     "start": "next start",
-    "dev": "next dev"
+    "dev": "next dev",
+    "test:e2e": "playwright test --config ../../playwright.config.ts"
   },
   "creatorcore": {
     "testGates": {
       "unit": false,
       "integration": false,
-      "e2e": false
+      "e2e": true
     }
   },
   "dependencies": {
     "@creatorcore/config": "workspace:*",
+    "better-auth": "1.7.4",
     "next": "^16.3.5",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"

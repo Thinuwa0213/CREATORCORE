@@ -72,6 +72,7 @@ interface MockControlPlaneClient {
   getPendingCredential: ReturnType<typeof vi.fn>;
   acknowledgeRotation: ReturnType<typeof vi.fn>;
   rejectRotation: ReturnType<typeof vi.fn>;
+  reportRuntimeStatus: ReturnType<typeof vi.fn>;
 }
 
 describe("BotRuntimeManager (Phase 4C Discord Gateway Runtime)", () => {
@@ -86,6 +87,7 @@ describe("BotRuntimeManager (Phase 4C Discord Gateway Runtime)", () => {
       getPendingCredential: vi.fn(),
       acknowledgeRotation: vi.fn(),
       rejectRotation: vi.fn(),
+      reportRuntimeStatus: vi.fn().mockResolvedValue({ ok: true }),
     };
   });
 
@@ -438,5 +440,95 @@ describe("BotRuntimeManager (Phase 4C Discord Gateway Runtime)", () => {
 
     expect(manager.isRunning("app-1")).toBe(false);
     expect(createdClients[0]?.destroyed).toBe(true);
+  });
+
+  it("reports READY when active runtime starts successfully", async () => {
+    const manager = new BotRuntimeManager({
+      client: mockClient as unknown as ControlPlaneClient,
+      logger,
+      clientFactory,
+    });
+
+    mockClient.getActiveCredential.mockResolvedValueOnce({
+      botApplicationId: "app-1",
+      credentialId: "cred-1",
+      token: "tok-1",
+      status: "ACTIVE",
+    });
+
+    await manager.handleOwnershipChange("app-1", "OWNED");
+
+    expect(mockClient.reportRuntimeStatus).toHaveBeenCalledWith(
+      "app-1",
+      expect.objectContaining({ state: "READY" }),
+    );
+  });
+
+  it("reports ERROR when active runtime fails to start", async () => {
+    const failingFactory = () => {
+      const client = new MockDiscordClient();
+      client.login = vi.fn().mockRejectedValue(new Error("invalid token"));
+      return client;
+    };
+
+    const manager = new BotRuntimeManager({
+      client: mockClient as unknown as ControlPlaneClient,
+      logger,
+      clientFactory: failingFactory,
+    });
+
+    mockClient.getActiveCredential.mockResolvedValueOnce({
+      botApplicationId: "app-1",
+      credentialId: "cred-1",
+      token: "bad-token",
+      status: "ACTIVE",
+    });
+
+    await manager.handleOwnershipChange("app-1", "OWNED");
+
+    expect(mockClient.reportRuntimeStatus).toHaveBeenCalledWith(
+      "app-1",
+      expect.objectContaining({ state: "ERROR", errorCategory: "LOGIN_REJECTED" }),
+    );
+  });
+
+  it("reports STOPPED when runtime ownership is lost or uncertain", async () => {
+    const manager = new BotRuntimeManager({
+      client: mockClient as unknown as ControlPlaneClient,
+      logger,
+      clientFactory,
+    });
+
+    mockClient.getActiveCredential.mockResolvedValueOnce({
+      botApplicationId: "app-1",
+      credentialId: "cred-1",
+      token: "tok-1",
+      status: "ACTIVE",
+    });
+
+    await manager.handleOwnershipChange("app-1", "OWNED");
+    await manager.handleOwnershipChange("app-1", "LOST");
+
+    expect(mockClient.reportRuntimeStatus).toHaveBeenCalledWith("app-1", { state: "STOPPED" });
+  });
+
+  it("absorbs reportRuntimeStatus transport errors without throwing or stopping the runtime", async () => {
+    mockClient.reportRuntimeStatus.mockRejectedValue(new Error("network failure"));
+
+    const manager = new BotRuntimeManager({
+      client: mockClient as unknown as ControlPlaneClient,
+      logger,
+      clientFactory,
+    });
+
+    mockClient.getActiveCredential.mockResolvedValueOnce({
+      botApplicationId: "app-1",
+      credentialId: "cred-1",
+      token: "tok-1",
+      status: "ACTIVE",
+    });
+
+    await expect(manager.handleOwnershipChange("app-1", "OWNED")).resolves.not.toThrow();
+    expect(manager.isRunning("app-1")).toBe(true);
   });
 });

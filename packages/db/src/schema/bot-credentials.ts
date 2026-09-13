@@ -1,21 +1,6 @@
-import { char, customType, index, int, mysqlEnum, mysqlTable, timestamp } from "drizzle-orm/mysql-core";
+import { char, index, int, mysqlEnum, mysqlTable, timestamp } from "drizzle-orm/mysql-core";
 import { botApplications } from "./bot-applications.js";
-
-const customBinary = (name: string, length: number) =>
-  customType<{ data: Buffer; driverData: Buffer | string }>({
-    dataType() {
-      return `varbinary(${length})`;
-    },
-    toDriver(val: Buffer): Buffer {
-      return val;
-    },
-    fromDriver(val: unknown): Buffer {
-      if (Buffer.isBuffer(val)) {
-        return val;
-      }
-      return Buffer.from(val as string, "binary");
-    },
-  })(name);
+import { customBinary } from "./lib/binary-column.js";
 
 /**
  * Bot credentials schema (docs/adr/0007-credential-encryption.md).

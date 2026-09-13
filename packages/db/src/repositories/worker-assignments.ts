@@ -1,6 +1,7 @@
 import { and, eq, gt, sql } from "drizzle-orm";
 import { workerAssignments } from "../schema/index.js";
 import type { Db } from "../types.js";
+import { isDuplicateKeyError } from "../lib/duplicate-key-error.js";
 import { isWorkerEligible } from "./worker-eligibility.js";
 import { findWorkerById } from "./workers.js";
 
@@ -20,32 +21,6 @@ export type ClaimFailureReason = "WORKER_NOT_ACTIVE" | "NOT_ELIGIBLE" | "LEASE_H
 export type ClaimResult =
   | { ok: true; assignment: WorkerAssignment }
   | { ok: false; reason: ClaimFailureReason };
-
-function hasDuplicateKeyCode(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === "ER_DUP_ENTRY"
-  );
-}
-
-/**
- * Drizzle wraps every driver-level error in its own `DrizzleQueryError`,
- * with the real mysql2 error (carrying `.code`) on `.cause` — checking only
- * the outer error's `.code` never matches, since mysql2's `code` field
- * isn't itself present on Drizzle's wrapper. Checked at both levels so this
- * keeps working if a future Drizzle version stops wrapping.
- */
-function isDuplicateKeyError(error: unknown): boolean {
-  if (hasDuplicateKeyCode(error)) {
-    return true;
-  }
-  if (error instanceof Error && error.cause) {
-    return hasDuplicateKeyCode(error.cause);
-  }
-  return false;
-}
 
 /**
  * Both the requesting worker's live status and its eligibility for this

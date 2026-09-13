@@ -18,3 +18,10 @@ export type { WorkerConfig } from "./worker.js";
 
 export { webConfigSchema, loadWebConfig } from "./web.js";
 export type { WebConfig } from "./web.js";
+
+// webServerConfigSchema/loadWebServerConfig hold apps/web's server-only
+// values (e.g. API_INTERNAL_URL) — safe to import from the bare entry point
+// since they carry no secret, but never import this from a "use client"
+// component (see web-server.ts's header comment).
+export { webServerConfigSchema, loadWebServerConfig } from "./web-server.js";
+export type { WebServerConfig } from "./web-server.js";

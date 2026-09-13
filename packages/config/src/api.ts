@@ -41,6 +41,28 @@ export const apiConfigSchema = z
     BOT_CREDENTIAL_ENCRYPTION_KEY_VERSION: z.coerce.number().int().positive().default(1),
     BOT_CREDENTIAL_ENCRYPTION_KEY_PREVIOUS: z.string().optional(),
     BOT_CREDENTIAL_ENCRYPTION_KEY_PREVIOUS_VERSION: z.coerce.number().int().positive().optional(),
+    // Phase 5 — Better Auth + Discord OAuth (docs/adr/0003). Better Auth runs
+    // inside apps/api only; none of these reach apps/web or apps/worker.
+    BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET must be at least 32 characters"),
+    // WEB_APP_ORIGIN serves double duty: it is Better Auth's baseURL (so the
+    // Discord redirect_uri and session cookie are bound to the public
+    // web-facing origin, never apps/api's own internal address — see the
+    // ADR addendum), and the sole allowlisted origin the CSRF
+    // origin-check middleware accepts on state-changing routes. A single
+    // source of truth here avoids the two drifting apart.
+    WEB_APP_ORIGIN: z.url({ message: "WEB_APP_ORIGIN must be a valid absolute URL" }),
+    DISCORD_CLIENT_ID: z.string({ message: "DISCORD_CLIENT_ID is required" }).min(1),
+    DISCORD_CLIENT_SECRET: z.string({ message: "DISCORD_CLIENT_SECRET is required" }).min(1),
+    // Encrypts Discord user OAuth access/refresh tokens captured via the
+    // account.create.before database hook (see apps/api/src/auth). Amendment
+    // 1: deliberately a separate key domain from BOT_CREDENTIAL_ENCRYPTION_KEY
+    // — a compromise of one must not compromise the other.
+    DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY: z.string({
+      message: "DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY is required",
+    }),
+    DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_VERSION: z.coerce.number().int().positive().default(1),
+    DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS: z.string().optional(),
+    DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS_VERSION: z.coerce.number().int().positive().optional(),
   })
   .extend(databaseConfigSchema.shape)
   .superRefine((data, ctx) => {
@@ -98,6 +120,93 @@ export const apiConfigSchema = z
         message: "BOT_CREDENTIAL_ENCRYPTION_KEY must differ from WORKER_TOKEN_SIGNING_KEY",
         path: ["BOT_CREDENTIAL_ENCRYPTION_KEY"],
       });
+    }
+
+    // Amendment 1: DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY must be a canonical
+    // base64url 32-byte key, and its own rotation pair follows the exact
+    // same shape as BOT_CREDENTIAL_ENCRYPTION_KEY's above.
+    if (!isValidBase64Url32(data.DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY must be a canonical base64url-encoded 32-byte key",
+        path: ["DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY"],
+      });
+    }
+
+    const hasDiscordPrevKey =
+      data.DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS !== undefined &&
+      data.DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS !== "";
+    const hasDiscordPrevVer = data.DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS_VERSION !== undefined;
+
+    if (hasDiscordPrevKey !== hasDiscordPrevVer) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS and DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS_VERSION must both be present or both absent",
+        path: ["DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS"],
+      });
+    }
+
+    if (hasDiscordPrevKey && data.DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS) {
+      if (!isValidBase64Url32(data.DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS must be a canonical base64url-encoded 32-byte key",
+          path: ["DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS"],
+        });
+      }
+
+      if (
+        data.DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS_VERSION ===
+        data.DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_VERSION
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS_VERSION must differ from DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_VERSION",
+          path: ["DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS_VERSION"],
+        });
+      }
+    }
+
+    // Amendment 1: the OAuth-token key domain must be independent of every
+    // other secret in this schema — a compromise of one must never imply
+    // the others. Checked pairwise against each sibling secret, including
+    // both domains' rotation-pair PREVIOUS slots (a rotation cutover is
+    // exactly the moment two normally-independent values are both "live"
+    // at once, so the previous slots need the same distinctness guarantee
+    // as the current ones — checked at every value on both sides, not just
+    // the two "current" values).
+    const discordKeyDomainValues: [string, string | undefined][] = [
+      ["DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY", data.DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY],
+      ["DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS", data.DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY_PREVIOUS],
+    ];
+    const otherSecretDomainValues: [string, string | undefined][] = [
+      ["BOT_CREDENTIAL_ENCRYPTION_KEY", data.BOT_CREDENTIAL_ENCRYPTION_KEY],
+      ["BOT_CREDENTIAL_ENCRYPTION_KEY_PREVIOUS", data.BOT_CREDENTIAL_ENCRYPTION_KEY_PREVIOUS],
+      ["WORKER_TOKEN_SIGNING_KEY", data.WORKER_TOKEN_SIGNING_KEY],
+      ["WORKER_TOKEN_SIGNING_KEY_PREVIOUS", data.WORKER_TOKEN_SIGNING_KEY_PREVIOUS],
+      ["BETTER_AUTH_SECRET", data.BETTER_AUTH_SECRET],
+      ["DISCORD_CLIENT_SECRET", data.DISCORD_CLIENT_SECRET],
+    ];
+    for (const [discordFieldName, discordValue] of discordKeyDomainValues) {
+      if (discordValue === undefined || discordValue === "") {
+        continue;
+      }
+      for (const [peerName, peerValue] of otherSecretDomainValues) {
+        if (peerValue === undefined || peerValue === "") {
+          continue;
+        }
+        if (discordValue === peerValue) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `${discordFieldName} must differ from ${peerName}`,
+            path: [discordFieldName],
+          });
+        }
+      }
     }
   });
 

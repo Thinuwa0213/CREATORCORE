@@ -47,6 +47,30 @@ export async function resolveBotApplicationForGuild(
 }
 
 /**
+ * Reverse of `resolveBotApplicationForGuild` — the guild(s) a BotApplication
+ * is currently assigned to, tenant-scoped. Used by the credential-rotation
+ * route (task §16) to resolve which Discord guild to synchronously
+ * re-verify the caller's management authority against before rotating a
+ * bot's credential.
+ */
+export async function listGuildsForBotApplication(
+  db: Db,
+  tenantId: string,
+  botApplicationId: string,
+): Promise<bigint[]> {
+  const rows = await db
+    .select({ guildId: guildBotAssignments.guildId })
+    .from(guildBotAssignments)
+    .where(
+      and(
+        eq(guildBotAssignments.botApplicationId, botApplicationId),
+        eq(guildBotAssignments.tenantId, tenantId),
+      ),
+    );
+  return rows.map((row) => row.guildId);
+}
+
+/**
  * Creates or replaces a guild's bot assignment. This is mutable
  * current-state, not append-only (see schema/guild-bot-assignments.ts) --
  * a guild has at most one active assignment, so reassigning is an upsert,

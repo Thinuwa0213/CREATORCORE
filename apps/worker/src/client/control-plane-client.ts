@@ -290,6 +290,42 @@ export class ControlPlaneClient {
   }
 
   /**
+   * Reports runtime health to the control plane (Phase 5, task §19,
+   * Amendment 4) — the one source honest enough to distinguish "this
+   * worker's lease is live" from "the Discord Gateway client actually
+   * reached READY." Best-effort from the caller's perspective: a rejection
+   * (this worker no longer holds the live assignment) or transport failure
+   * here must never crash the runtime or block its primary job of running
+   * the bot — callers should treat this as fire-and-forget.
+   */
+  public async reportRuntimeStatus(
+    botApplicationId: string,
+    report: {
+      state: "STARTING" | "READY" | "ERROR" | "STOPPED";
+      connectedAt?: string;
+      discordBotUserId?: string;
+      errorCategory?: string;
+    },
+  ): Promise<{ ok: boolean }> {
+    try {
+      const res = await this.requestWithAuth<{ ok: boolean }>(
+        `/internal/bot-runtime-status/${encodeURIComponent(botApplicationId)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(report),
+        },
+      );
+      return { ok: res.ok };
+    } catch (error) {
+      if (error instanceof HttpError && error.status === 403) {
+        return { ok: false };
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Rejects a pending credential candidate after failed validation, removing it from database.
    */
   public async rejectRotation(

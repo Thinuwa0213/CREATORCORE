@@ -7,14 +7,34 @@ import { createWorkerExchangeRoute } from "./routes/internal/worker-exchange.js"
 import { createWorkerAssignmentRoutes } from "./routes/internal/worker-assignments.js";
 import { createErrorHandler } from "./error-handler.js";
 import type { WorkerTokenSigningKeys } from "./lib/worker-token.js";
+import { createAuthPathAllowlistMiddleware } from "./middleware/auth-path-allowlist.js";
+import type { Auth } from "./auth/index.js";
+import { createGuildRoutes } from "./routes/app/guilds.js";
+import { createTenantResourceRoutes } from "./routes/app/tenant-resources.js";
+import { createBotRuntimeStatusRoute } from "./routes/internal/bot-runtime-status.js";
+import type { DiscordGuildProvider } from "./discord/types.js";
+import type { BotOnboardingService } from "./services/bot-onboarding-service.js";
 
 import type { CredentialService } from "./services/credential-service.js";
+import type { FakeDiscordGuildProvider } from "./discord/fake-discord-guild-provider.js";
+import {
+  createTestHarnessRoutes,
+  isTestHarnessEnabled,
+} from "./routes/internal/test-harness.js";
+
+const BETTER_AUTH_MOUNT_PATH = "/api/auth";
 
 export interface CreateAppOptions extends ReadyRouteDeps {
   logger: Logger;
   db: DatabaseClient["db"];
   signingKeys: WorkerTokenSigningKeys;
   credentialService?: CredentialService | undefined;
+  auth?: Auth | undefined;
+  discordGuildProvider?: DiscordGuildProvider | undefined;
+  webAppOrigin?: string | undefined;
+  botOnboardingService?: BotOnboardingService | undefined;
+  fakeDiscordGuildProvider?: FakeDiscordGuildProvider | undefined;
+  betterAuthSecret?: string | undefined;
 }
 
 /**
@@ -34,6 +54,61 @@ export function createApp(options: CreateAppOptions): Hono {
   app.route("/ready", createReadyRoute(options));
   app.route("/internal/workers/exchange", createWorkerExchangeRoute(options));
   app.route("/internal/worker-assignments", createWorkerAssignmentRoutes(options));
+
+  if (options.auth) {
+    const auth = options.auth;
+    app.on(
+      ["GET", "POST"],
+      `${BETTER_AUTH_MOUNT_PATH}/*`,
+      createAuthPathAllowlistMiddleware(BETTER_AUTH_MOUNT_PATH),
+      (c) => auth.handler(c.req.raw),
+    );
+  }
+
+  if (options.auth && options.discordGuildProvider && options.webAppOrigin) {
+    app.route(
+      "/app/guilds",
+      createGuildRoutes({
+        db: options.db,
+        auth: options.auth,
+        discordGuildProvider: options.discordGuildProvider,
+        webAppOrigin: options.webAppOrigin,
+      }),
+    );
+  }
+
+  if (
+    options.auth &&
+    options.discordGuildProvider &&
+    options.webAppOrigin &&
+    options.botOnboardingService &&
+    options.credentialService
+  ) {
+    app.route(
+      "/app/tenants/:tenantId",
+      createTenantResourceRoutes({
+        db: options.db,
+        auth: options.auth,
+        discordGuildProvider: options.discordGuildProvider,
+        webAppOrigin: options.webAppOrigin,
+        botOnboardingService: options.botOnboardingService,
+        credentialService: options.credentialService,
+      }),
+    );
+  }
+
+  app.route("/internal/bot-runtime-status", createBotRuntimeStatusRoute(options));
+
+  if (isTestHarnessEnabled()) {
+    app.route(
+      "/internal/test",
+      createTestHarnessRoutes({
+        db: options.db,
+        fakeDiscordGuildProvider: options.fakeDiscordGuildProvider,
+        betterAuthSecret: options.betterAuthSecret,
+      }),
+    );
+  }
 
   app.onError(createErrorHandler(options.logger));
   app.notFound((c) => c.json({ error: "not_found" }, 404));
