@@ -1,34 +1,55 @@
-import { char, int, mysqlEnum, mysqlTable, timestamp, varbinary } from "drizzle-orm/mysql-core";
+import { char, customType, index, int, mysqlEnum, mysqlTable, timestamp } from "drizzle-orm/mysql-core";
 import { botApplications } from "./bot-applications.js";
 
+const customBinary = (name: string, length: number) =>
+  customType<{ data: Buffer; driverData: Buffer | string }>({
+    dataType() {
+      return `varbinary(${length})`;
+    },
+    toDriver(val: Buffer): Buffer {
+      return val;
+    },
+    fromDriver(val: unknown): Buffer {
+      if (Buffer.isBuffer(val)) {
+        return val;
+      }
+      return Buffer.from(val as string, "binary");
+    },
+  })(name);
+
 /**
- * INERT SCAFFOLDING ONLY (docs/adr/0007). This table exists so Phase 3
- * implementation starts inside the future encryption-boundary constraint
- * rather than retrofitting it later (see packages/db/README.md's
- * "WorkerAssignment credential-access boundary" section, which already
- * reserves `getCredentialForAssignedWorker(workerId, botApplicationId)` as
- * the eventual, not-yet-built, access function).
+ * Bot credentials schema (docs/adr/0007-credential-encryption.md).
  *
- * NO repository or service function reads or writes this table anywhere in
- * Phase 3. No encryption flow, no rotation lifecycle, and no credential
- * issuance/decryption endpoint are implemented here -- all of that is
- * ADR-0007 implementation work, explicitly out of Phase 3 scope.
+ * AES-256-GCM envelope encryption at rest:
+ * - ciphertext: encrypted bot token material (never plaintext)
+ * - nonce: unique 12-byte IV for this encryption
+ * - authTag: 16-byte authentication tag verifying ciphertext and AAD integrity
+ * - keyVersion: KEK version used for encryption
+ * - status: PENDING (rotation candidate) or ACTIVE (current working credential)
+ * - activatedAt: timestamp when promoted to ACTIVE
  *
- * `ciphertext`/`nonce` are opaque encrypted bytes -- there is no plaintext
- * token column, and there never will be one, per docs/SECURITY.md's locked
- * rule. `keyVersion` reserves the concept for future KEK-rotation
- * bookkeeping (ADR-0007) without implementing rotation now.
+ * Plaintext bot tokens are never persisted in the database, logged, or exposed
+ * to the browser dashboard.
  */
-export const botCredentials = mysqlTable("bot_credentials", {
-  id: char("id", { length: 36 }).primaryKey(),
-  botApplicationId: char("bot_application_id", { length: 36 })
-    .notNull()
-    .references(() => botApplications.id, { onDelete: "cascade" }),
-  status: mysqlEnum("status", ["PENDING", "ACTIVE", "SUPERSEDED"]).notNull(),
-  keyVersion: int("key_version").notNull().default(1),
-  ciphertext: varbinary("ciphertext", { length: 4096 }).notNull(),
-  nonce: varbinary("nonce", { length: 24 }).notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
-  supersededAt: timestamp("superseded_at"),
-});
+export const botCredentials = mysqlTable(
+  "bot_credentials",
+  {
+    id: char("id", { length: 36 }).primaryKey(),
+    botApplicationId: char("bot_application_id", { length: 36 })
+      .notNull()
+      .references(() => botApplications.id, { onDelete: "cascade" }),
+    status: mysqlEnum("status", ["PENDING", "ACTIVE", "SUPERSEDED"]).notNull(),
+    keyVersion: int("key_version").notNull().default(1),
+    ciphertext: customBinary("ciphertext", 4096).notNull(),
+    nonce: customBinary("nonce", 24).notNull(),
+    authTag: customBinary("auth_tag", 16).notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+    activatedAt: timestamp("activated_at"),
+    supersededAt: timestamp("superseded_at"),
+  },
+  (table) => [
+    index("bot_credentials_app_status_idx").on(table.botApplicationId, table.status),
+  ],
+);
+

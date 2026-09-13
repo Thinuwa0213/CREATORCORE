@@ -1,9 +1,19 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { randomBytes } from "node:crypto";
 import mysql from "mysql2/promise";
 import { eq } from "drizzle-orm";
 import { loadDatabaseConfig } from "@creatorcore/config/database";
 import { createDatabaseClient, type DatabaseClient } from "../../src/index.js";
 import { tenants, users, workers } from "../../src/schema/index.js";
+
+if (!process.env.DATABASE_URL && typeof process.loadEnvFile === "function") {
+  const envPath = path.resolve(fileURLToPath(import.meta.url), "../../../../../.env");
+  if (fs.existsSync(envPath)) {
+    process.loadEnvFile(envPath);
+  }
+}
 
 /**
  * Shared fixtures/cleanup for the Phase 3 real-MySQL security regression

@@ -70,3 +70,18 @@ export type {
 export { recordAuditEvent } from "./repositories/audit-events.js";
 export type { RecordAuditEventInput } from "./repositories/audit-events.js";
 
+export {
+  createInitialActiveCredential,
+  createPendingCredential,
+  getActiveCredentialForAssignedWorker,
+  getPendingCredentialForAssignedWorker,
+  promotePendingCredential,
+  rejectPendingCredential,
+  findActiveCredential,
+} from "./repositories/bot-credentials.js";
+export type {
+  BotCredentialRow,
+  CreateCredentialInput,
+} from "./repositories/bot-credentials.js";
+
+

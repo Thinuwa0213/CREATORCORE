@@ -48,6 +48,15 @@ Once integration tests exist, they must run against a real MySQL instance (e.g.,
 
 Database credentials are server-side secrets only, injected via environment variables (see `.env.example` for names), never exposed to browser/client code, and never shared between local/test/staging/production environments (`docs/DEVELOPMENT.md`). No production database credentials are used in local development or automated tests.
 
-## No production data outside production `[LOCKED — principle]`
+## Bot Credentials & Envelope Encryption Rules `[LOCKED — Phase 4B]`
 
-Test and staging environments use synthetic/seeded data. Production data (including real Discord user or guild data) is never copied into local, test, or CI environments.
+- **Physical Schema (`bot_credentials`):**
+  - Columns: `id` (char 36), `bot_application_id` (char 36 FK cascade), `status` (mysqlEnum: `PENDING`, `ACTIVE`, `SUPERSEDED`), `key_version` (int), `ciphertext` (varbinary 4096), `nonce` (varbinary 24), `auth_tag` (varbinary 16), `created_at`, `updated_at`, `activated_at`, `superseded_at`.
+  - Composite Index: `bot_credentials_app_status_idx (bot_application_id, status)`.
+- **Binary Buffer Handling:**
+  - Drizzle ORM's default `varbinary` column maps binary data with `.toString()` by default, which corrupts raw cryptographic ciphertext/tags via UTF-8 replacement characters (`\uFFFD`).
+  - Binary columns storing cryptographic material must use `customType` preserving raw `Buffer`s on driver read/write without UTF-8 conversion.
+- **Single Authoritative Active Credential:**
+  - At most one `ACTIVE` credential may exist per `bot_application_id`.
+  - Promotion of `PENDING` to `ACTIVE` must occur inside a database transaction that simultaneously deletes superseded credentials.
+

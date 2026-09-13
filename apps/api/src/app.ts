@@ -8,10 +8,13 @@ import { createWorkerAssignmentRoutes } from "./routes/internal/worker-assignmen
 import { createErrorHandler } from "./error-handler.js";
 import type { WorkerTokenSigningKeys } from "./lib/worker-token.js";
 
+import type { CredentialService } from "./services/credential-service.js";
+
 export interface CreateAppOptions extends ReadyRouteDeps {
   logger: Logger;
   db: DatabaseClient["db"];
   signingKeys: WorkerTokenSigningKeys;
+  credentialService?: CredentialService | undefined;
 }
 
 /**

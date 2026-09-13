@@ -5,6 +5,8 @@ import { createLogger } from "@creatorcore/logger";
 import { createDatabaseClient, checkDatabaseConnectivity } from "@creatorcore/db";
 import { createApp } from "./app.js";
 import type { WorkerTokenSigningKeys } from "./lib/worker-token.js";
+import type { CredentialEncryptionKeys } from "./lib/credential-crypto.js";
+import { CredentialService } from "./services/credential-service.js";
 
 function bootstrap() {
   let config;
@@ -33,11 +35,30 @@ function bootstrap() {
       : {}),
   };
 
+  const credentialKeys: CredentialEncryptionKeys = {
+    current: Buffer.from(config.BOT_CREDENTIAL_ENCRYPTION_KEY, "base64url"),
+    currentVersion: config.BOT_CREDENTIAL_ENCRYPTION_KEY_VERSION,
+    ...(config.BOT_CREDENTIAL_ENCRYPTION_KEY_PREVIOUS !== undefined &&
+    config.BOT_CREDENTIAL_ENCRYPTION_KEY_PREVIOUS_VERSION !== undefined
+      ? {
+          previous: Buffer.from(config.BOT_CREDENTIAL_ENCRYPTION_KEY_PREVIOUS, "base64url"),
+          previousVersion: config.BOT_CREDENTIAL_ENCRYPTION_KEY_PREVIOUS_VERSION,
+        }
+      : {}),
+  };
+
+  const credentialService = new CredentialService({
+    db: dbClient.db,
+    keys: credentialKeys,
+    logger,
+  });
+
   const app = createApp({
     logger,
     db: dbClient.db,
     checkDatabaseReady: () => checkDatabaseConnectivity(dbClient.pool),
     signingKeys,
+    credentialService,
   });
 
   const server = serve({ fetch: app.fetch, port: config.PORT }, (info) => {

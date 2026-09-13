@@ -21,6 +21,7 @@
  *
  * Usage: node scripts/check-test-gate.mjs <unit|integration|e2e>
  */
+import fs from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,6 +37,10 @@ if (!VALID_GATES.includes(GATE)) {
 }
 
 const repoRoot = path.resolve(fileURLToPath(import.meta.url), "../..");
+const envPath = path.join(repoRoot, ".env");
+if (typeof process.loadEnvFile === "function" && fs.existsSync(envPath)) {
+  process.loadEnvFile(envPath);
+}
 const label = GATE.toUpperCase();
 const workspaces = listWorkspaces(repoRoot);
 

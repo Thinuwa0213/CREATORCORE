@@ -83,4 +83,27 @@ Deferred to implementation (post-Gate-1): actual authentication implementation, 
 
 ## Gate 1 update: architecture decisions locked, nothing implemented yet
 
-`docs/THREAT_MODEL.md` records the Gate 1 threat analysis (stolen tokens, cross-tenant IDOR, compromised worker, compromised API, worker impersonation, rotation races, internal notification spoofing, etc.) against the now-`LOCKED` architecture in `docs/adr/`. As of 2026-09-12, ADRs 0001–0011 are approved and binding — see `docs/adr/README.md` for exact status per ADR, including the three that carried a required amendment (0003, 0007, 0009). **Locking the architecture is not implementing it.** No authentication system, dashboard, bot runtime, database schema, credential encryption, or worker identity exchange exists in code yet — the threat model documents intended mitigations against a now-approved design, not verified controls. ADR-0007 (credential encryption) and ADR-0003 (authentication & sessions) remain the two `[SECURITY-SENSITIVE — NEEDS REVIEW]` decisions in this batch and require the closest scrutiny again when implementation actually begins — a locked ADR is not a substitute for the `security-reviewer` pass `CLAUDE.md` requires on the resulting code.
+`docs/THREAT_MODEL.md` records the Gate 1 threat analysis (stolen tokens, cross-tenant IDOR, compromised worker, compromised API, worker impersonation, rotation races, internal notification spoofing, etc.) against the now-`LOCKED` architecture in `docs/adr/`. As of 2026-09-12, ADRs 0001–0011 are approved and binding — see `docs/adr/README.md` for exact status per ADR, including the three that carried a required amendment (0003, 0007, 0009).
+
+## Phase 4B/4C Implementation: Bot Credential Foundation & Gateway Runtime
+
+Implemented in Phase 4B & Phase 4C under 9 explicit security amendments:
+
+1. **Envelope Encryption & Authenticated Additional Data (AAD) (ADR-0007 / Amendment 6):**
+   - AES-256-GCM encryption with 12-byte random nonces and 16-byte authentication tags.
+   - Additional Authenticated Data (AAD) cryptographically binds ciphertext to `creatorcore:bot_credential:v1|${botApplicationId}|${credentialId}|${keyVersion}`. Ciphertext cannot be transplanted across bot applications or credential records.
+   - Key material is strictly base64url-encoded 32 random bytes (`^[A-Za-z0-9_-]{43}$`). Distinct from worker-token signing key.
+2. **Exact Credential Identity Binding (Amendment 2 & 3):**
+   - Rotation endpoints require exact `botApplicationId + credentialId`.
+   - Access is restricted to authenticated workers holding a live `WorkerAssignment` for that exact BotApplication.
+   - Rejection and acknowledgement enforce the identical ownership boundary.
+3. **Crash-Recoverable Rotation State Machine (Amendment 1):**
+   - Existing ACTIVE credential remains authoritative until replacement success is proven and acknowledged.
+   - Acknowledgement is idempotent and transactional: promotes PENDING to ACTIVE and deletes superseded ciphertext.
+   - On worker crash or restart, the worker converges on DB truth via `GET /credentials/active` without requiring local worker state.
+4. **Discord Runtime Token Handling & Honest Memory Limits (Amendment 7 & 8):**
+   - Plaintext bot tokens are never persisted to disk, never logged, and never exposed in browser or metrics.
+   - Plaintext tokens are scoped locally during login execution; references are dropped on `LOST`, `UNCERTAIN`, shutdown, and replacement.
+   - V8 garbage collection memory limitation is documented honestly: in pure JS, string memory cannot be manually zeroed; CreatorCore guarantees zero retention beyond the immediate login invocation.
+   - Runtime replacement invariant: at most one active runtime per bot application; temporary validation client is strictly bounded by the validation/swap window and destroyed immediately on failure, rejection, or swap.
+

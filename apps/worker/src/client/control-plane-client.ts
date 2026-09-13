@@ -33,6 +33,13 @@ export interface ClaimDeniedResult {
 
 export type ClaimResult = ClaimSuccessResult | ClaimDeniedResult;
 
+export interface BotCredentialPayload {
+  botApplicationId: string;
+  credentialId: string;
+  token: string;
+  status: "ACTIVE" | "PENDING";
+}
+
 /**
  * Thrown when the control-plane API explicitly rejects worker authentication
  * (HTTP 401 on exchange or after token re-auth). This indicates the worker identity
@@ -219,6 +226,93 @@ export class ControlPlaneClient {
       "release",
     );
     return { ok: res.ok };
+  }
+
+  /**
+   * Retrieves the currently authoritative decrypted ACTIVE credential for an assigned BotApplication.
+   * Bound to live assignment ownership verified by API.
+   */
+  public async getActiveCredential(botApplicationId: string): Promise<BotCredentialPayload | null> {
+    try {
+      return await this.requestWithAuth<BotCredentialPayload>(
+        `/internal/worker-assignments/${encodeURIComponent(botApplicationId)}/credentials/active`,
+        { method: "GET" },
+      );
+    } catch (error) {
+      if (error instanceof HttpError && (error.status === 403 || error.status === 404)) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Retrieves an exact decrypted PENDING credential candidate for validation during rotation.
+   * Bound to live assignment ownership and exact credential ID.
+   */
+  public async getPendingCredential(
+    botApplicationId: string,
+    credentialId: string,
+  ): Promise<BotCredentialPayload | null> {
+    try {
+      return await this.requestWithAuth<BotCredentialPayload>(
+        `/internal/worker-assignments/${encodeURIComponent(botApplicationId)}/rotations/${encodeURIComponent(credentialId)}`,
+        { method: "GET" },
+      );
+    } catch (error) {
+      if (error instanceof HttpError && (error.status === 403 || error.status === 404)) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Atomically acknowledges successful validation of a pending credential,
+   * promoting it to ACTIVE in database truth.
+   */
+  public async acknowledgeRotation(
+    botApplicationId: string,
+    credentialId: string,
+  ): Promise<{ ok: boolean; reason?: string }> {
+    try {
+      const res = await this.requestWithAuth<{ ok: boolean }>(
+        `/internal/worker-assignments/${encodeURIComponent(botApplicationId)}/rotations/${encodeURIComponent(credentialId)}/acknowledge`,
+        { method: "POST" },
+      );
+      return { ok: res.ok };
+    } catch (error) {
+      if (error instanceof HttpError && error.status === 403) {
+        return { ok: false, reason: error.errorBody?.error ?? "acknowledgement_failed" };
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Rejects a pending credential candidate after failed validation, removing it from database.
+   */
+  public async rejectRotation(
+    botApplicationId: string,
+    credentialId: string,
+    reason?: string,
+  ): Promise<{ ok: boolean; reason?: string }> {
+    try {
+      const res = await this.requestWithAuth<{ ok: boolean }>(
+        `/internal/worker-assignments/${encodeURIComponent(botApplicationId)}/rotations/${encodeURIComponent(credentialId)}/reject`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason }),
+        },
+      );
+      return { ok: res.ok };
+    } catch (error) {
+      if (error instanceof HttpError && error.status === 403) {
+        return { ok: false, reason: error.errorBody?.error ?? "rejection_failed" };
+      }
+      throw error;
+    }
   }
 
   private async requestAssignmentMutation(

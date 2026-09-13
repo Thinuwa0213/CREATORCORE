@@ -9,6 +9,14 @@
     "./app": {
       "types": "./dist/app.d.ts",
       "default": "./dist/app.js"
+    },
+    "./services/credential-service": {
+      "types": "./dist/services/credential-service.d.ts",
+      "default": "./dist/services/credential-service.js"
+    },
+    "./services/discord-validator": {
+      "types": "./dist/services/discord-validator.d.ts",
+      "default": "./dist/services/discord-validator.js"
     }
   },
   "scripts": {

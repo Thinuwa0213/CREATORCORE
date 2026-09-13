@@ -105,3 +105,17 @@ Real unit tests now exist and pass in `packages/config`, `packages/db`, `package
 ## Phase 4A status
 
 `apps/worker` now declares `creatorcore.testGates.integration: true` and includes a real HTTP integration suite (`tests/integration/worker-runtime.test.ts`) traversing the full boundary: real `ControlPlaneClient` → real Node HTTP server listening on an ephemeral port → real repository layer → real MySQL test database. All 10 required scenarios are verified: bootstrap authentication, capability discovery (information minimization), assignment claim, renewal, `/current` inspection, revocation handling, concurrent claim race serialization, loser runtime tracking prevention, graceful release, and ambiguous network failure transitions to `UNCERTAIN` (suspending privileged activity).
+
+## Phase 4B/4C status
+
+Phase 4B and Phase 4C add comprehensive unit and integration testing across cryptography, credential delivery, rotation state machines, and Discord Gateway runtimes:
+- **`packages/config`**: Strict canonical base64url 32-byte key validation, key rotation parsing, and configuration boundaries (worker and web configs strip/ignore encryption keys).
+- **`packages/db`**: Real MySQL integration tests for `bot_credentials` repository (`createInitialActiveCredential`, `createPendingCredential` with uniqueness enforcement, `getActiveCredentialForAssignedWorker`, `getPendingCredentialForAssignedWorker`, `promotePendingCredential` transactional cutover and superseded deletion, and `rejectPendingCredential`).
+- **`apps/api`**:
+  - Unit tests for `credential-crypto`: AES-256-GCM encryption/decryption round-trip, unique nonces, tampered ciphertext, tampered auth tags, transplanted AAD context rejection, key rotation support, and secret error sanitization.
+  - Token validator unit tests with sanitized operational errors.
+  - Real MySQL integration tests for `/credentials/active`, `/rotations/:credentialId`, `/rotations/:credentialId/acknowledge`, and `/rotations/:credentialId/reject`.
+- **`apps/worker`**:
+  - Unit tests for `BotRuntimeManager`: duplicate rotation requests rejected, repeated acknowledgement idempotent, worker restart convergence on DB truth without local state, `LOST` and `UNCERTAIN` state runtime destruction, shutdown cleanup, old client destruction error resilience, and failed pending login handling.
+  - Real HTTP + live MySQL integration tests: full end-to-end credential delivery, validation runtime execution, rotation cutover, runtime swap, and crash-recovery verification.
+

@@ -20,6 +20,7 @@ export interface AssignmentCoordinatorOptions {
   renewalIntervalMs?: number; // default: 20_000ms
   reconciliationIntervalMs?: number; // default: 3_000ms for UNCERTAIN state
   releaseTimeoutMs?: number; // default: 3_000ms
+  onOwnershipChange?: (botApplicationId: string, state: OwnershipState) => Promise<void> | void;
 }
 
 /**
@@ -39,6 +40,7 @@ export class AssignmentCoordinator {
   private readonly renewalIntervalMs: number;
   private readonly reconciliationIntervalMs: number;
   private readonly releaseTimeoutMs: number;
+  private readonly onOwnershipChange?: ((botApplicationId: string, state: OwnershipState) => Promise<void> | void) | undefined;
 
   private readonly assignments = new Map<string, TrackedAssignment>();
   private discoveryTimer?: NodeJS.Timeout | undefined;
@@ -52,6 +54,7 @@ export class AssignmentCoordinator {
     this.renewalIntervalMs = options.renewalIntervalMs ?? 20_000;
     this.reconciliationIntervalMs = options.reconciliationIntervalMs ?? 3_000;
     this.releaseTimeoutMs = options.releaseTimeoutMs ?? 3_000;
+    this.onOwnershipChange = options.onOwnershipChange;
   }
 
   /**
@@ -269,10 +272,23 @@ export class AssignmentCoordinator {
 
   private setOwnershipState(botApplicationId: string, state: OwnershipState): void {
     const existing = this.assignments.get(botApplicationId);
+    const previousState = existing?.state;
     if (existing) {
       existing.state = state;
     } else {
       this.assignments.set(botApplicationId, { botApplicationId, state });
+    }
+
+    if (previousState !== state) {
+      try {
+        void this.onOwnershipChange?.(botApplicationId, state);
+      } catch (err) {
+        this.logger.warn("error in onOwnershipChange callback", {
+          botApplicationId,
+          state,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
   }
 
@@ -298,5 +314,11 @@ export class AssignmentCoordinator {
     }
     this.assignments.delete(botApplicationId);
     this.logger.info("assignment dropped from active runtime", { botApplicationId });
+
+    try {
+      void this.onOwnershipChange?.(botApplicationId, "LOST");
+    } catch {
+      // ignore
+    }
   }
 }

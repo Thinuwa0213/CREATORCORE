@@ -28,10 +28,12 @@ async function bootstrap() {
   const workerIdContext = config.WORKER_ID ? { workerId: config.WORKER_ID } : {};
 
   let coordinator: import("./runtime/assignment-coordinator.js").AssignmentCoordinator | undefined;
+  let runtimeManager: import("./runtime/bot-runtime-manager.js").BotRuntimeManager | undefined;
 
   if (config.WORKER_ID && config.WORKER_BOOTSTRAP_SECRET) {
     const { ControlPlaneClient } = await import("./client/control-plane-client.js");
     const { AssignmentCoordinator } = await import("./runtime/assignment-coordinator.js");
+    const { BotRuntimeManager } = await import("./runtime/bot-runtime-manager.js");
 
     const client = new ControlPlaneClient({
       apiBaseUrl: config.API_BASE_URL,
@@ -40,9 +42,19 @@ async function bootstrap() {
       logger,
     });
 
+    runtimeManager = new BotRuntimeManager({
+      client,
+      logger,
+    });
+
     coordinator = new AssignmentCoordinator({
       client,
       logger,
+      onOwnershipChange: async (botApplicationId, state) => {
+        if (runtimeManager) {
+          await runtimeManager.handleOwnershipChange(botApplicationId, state);
+        }
+      },
     });
 
     void coordinator.start();
@@ -60,6 +72,9 @@ async function bootstrap() {
       clearInterval(heartbeat);
       if (coordinator) {
         await coordinator.stop();
+      }
+      if (runtimeManager) {
+        await runtimeManager.stopAll();
       }
     },
   });

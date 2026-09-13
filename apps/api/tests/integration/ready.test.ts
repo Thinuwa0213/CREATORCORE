@@ -1,8 +1,18 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { loadDatabaseConfig } from "@creatorcore/config/database";
 import { createDatabaseClient, checkDatabaseConnectivity } from "@creatorcore/db";
 import { createLogger } from "@creatorcore/logger";
 import { createApp } from "../../src/app.js";
+
+if (!process.env.DATABASE_URL && typeof process.loadEnvFile === "function") {
+  const envPath = path.resolve(fileURLToPath(import.meta.url), "../../../../../.env");
+  if (fs.existsSync(envPath)) {
+    process.loadEnvFile(envPath);
+  }
+}
 
 /**
  * Real MySQL 8.x integration test for /ready (docs/DATABASE_RULES.md — no

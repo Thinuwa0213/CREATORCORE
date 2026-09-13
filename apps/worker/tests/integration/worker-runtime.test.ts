@@ -1,3 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { randomBytes } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import { serve } from "@hono/node-server";
@@ -14,11 +18,27 @@ import {
 } from "@creatorcore/db";
 import { createLogger } from "@creatorcore/logger";
 import { createApp } from "@creatorcore/api/app";
+import { CredentialService } from "@creatorcore/api/services/credential-service";
+import { DiscordValidator } from "@creatorcore/api/services/discord-validator";
 import { ControlPlaneClient, WorkerAuthRevokedError } from "../../src/client/control-plane-client.js";
 import { AssignmentCoordinator } from "../../src/runtime/assignment-coordinator.js";
+import { BotRuntimeManager } from "../../src/runtime/bot-runtime-manager.js";
+import type { IDiscordClient } from "../../src/runtime/discord-client.js";
+
+if (!process.env.DATABASE_URL && typeof process.loadEnvFile === "function") {
+  const envPath = path.resolve(fileURLToPath(import.meta.url), "../../../../../.env");
+  if (fs.existsSync(envPath)) {
+    process.loadEnvFile(envPath);
+  }
+}
 
 const SIGNING_KEYS = {
   current: "integration-test-signing-key-minimum-32-chars-long!",
+  currentVersion: 1,
+};
+
+const ENCRYPTION_KEYS = {
+  current: randomBytes(32),
   currentVersion: 1,
 };
 
@@ -57,15 +77,34 @@ describe.skipIf(!dbAvailable)("Worker Runtime Real HTTP Integration (Phase 4A)",
 
   let clientA: ControlPlaneClient;
   let clientB: ControlPlaneClient;
+  let credentialService: CredentialService;
 
   beforeAll(async () => {
     dbClient = createDatabaseClient(loadDatabaseConfig());
 
     const testLogger = createLogger({ service: "apps/worker-integration-test", write: () => undefined });
+
+    const discordValidator = new DiscordValidator({
+      fetchFn: async () =>
+        ({
+          ok: true,
+          status: 200,
+          json: async () => ({ id: "1234567890", username: "TestBot" }),
+        }) as unknown as Response,
+    });
+
+    credentialService = new CredentialService({
+      db: dbClient.db,
+      logger: testLogger,
+      keys: ENCRYPTION_KEYS,
+      validator: discordValidator,
+    });
+
     const app = createApp({
       logger: testLogger,
       db: dbClient.db,
       signingKeys: SIGNING_KEYS,
+      credentialService,
       checkDatabaseReady: async () => true,
     });
 
@@ -286,5 +325,145 @@ describe.skipIf(!dbAvailable)("Worker Runtime Real HTTP Integration (Phase 4A)",
 
     await coordinatorWithBrokenClient.stop();
     await coordinator.stop();
+    await clientA.release(botApp1Id);
+  });
+
+  describe("Phase 4B/4C: Credential Delivery, Rotation, and Discord Runtime over Real HTTP", () => {
+    class IntegrationMockClient implements IDiscordClient {
+      public loggedIn = false;
+      public destroyed = false;
+      public tokenProvided: string | null = null;
+      private listeners: Record<string, ((...args: unknown[]) => void)[]> = {};
+
+      public async login(token: string): Promise<string> {
+        this.tokenProvided = token;
+        this.loggedIn = true;
+        setTimeout(() => {
+          this.emit("ready");
+        }, 10);
+        return token;
+      }
+
+      public async destroy(): Promise<void> {
+        this.destroyed = true;
+        this.loggedIn = false;
+      }
+
+      public isReady(): boolean {
+        return this.loggedIn && !this.destroyed;
+      }
+
+      public on(event: string, listener: (...args: unknown[]) => void): this {
+        if (!this.listeners[event]) this.listeners[event] = [];
+        this.listeners[event].push(listener);
+        return this;
+      }
+
+      public once(event: string, listener: (...args: unknown[]) => void): this {
+        const wrapped = (...args: unknown[]) => {
+          this.removeListener(event, wrapped);
+          listener(...args);
+        };
+        return this.on(event, wrapped);
+      }
+
+      public removeListener(event: string, listener: (...args: unknown[]) => void): this {
+        if (this.listeners[event]) {
+          this.listeners[event] = this.listeners[event].filter((l) => l !== listener);
+        }
+        return this;
+      }
+
+      public emit(event: string, ...args: unknown[]): void {
+        if (this.listeners[event]) {
+          for (const listener of [...this.listeners[event]]) {
+            listener(...args);
+          }
+        }
+      }
+    }
+
+    it("delivers decrypted credential to claiming worker and runs Discord gateway lifecycle through rotation", async () => {
+      const testLogger = createLogger({ service: "apps/worker-cred-test", write: () => undefined });
+      const clientsCreated: IntegrationMockClient[] = [];
+      const clientFactory = () => {
+        const c = new IntegrationMockClient();
+        clientsCreated.push(c);
+        return c;
+      };
+
+      // 1. Store initial active credential in MySQL
+      const initialToken = "initial-bot-token-12345";
+      const initialCred = await credentialService.storeInitialCredential(botApp1Id, initialToken);
+      expect(initialCred.credentialId).toBeDefined();
+
+      // 2. Worker A claims the assignment
+      const claimResult = await clientA.claim(botApp1Id);
+      expect(claimResult.ok).toBe(true);
+
+      // 3. Worker A starts BotRuntimeManager
+      const manager = new BotRuntimeManager({
+        client: clientA,
+        logger: testLogger,
+        clientFactory,
+      });
+
+      await manager.handleOwnershipChange(botApp1Id, "OWNED");
+
+      expect(manager.isRunning(botApp1Id)).toBe(true);
+      expect(clientsCreated).toHaveLength(1);
+      const activeClient1 = clientsCreated[0];
+      expect(activeClient1).toBeDefined();
+      if (!activeClient1) throw new Error("activeClient1 not found");
+      expect(activeClient1.tokenProvided).toBe(initialToken);
+      expect(activeClient1.isReady()).toBe(true);
+
+      // 4. Control plane initiates a credential rotation in MySQL
+      const rotationToken = "rotated-bot-token-67890";
+      const rotation = await credentialService.requestCredentialRotation(botApp1Id, rotationToken);
+      if (!rotation.ok) {
+        throw new Error(`Rotation request failed: ${rotation.reason}`);
+      }
+      expect(rotation.credentialId).toBeDefined();
+
+      // 5. Worker executes rotation
+      const rotateResult = await manager.rotateCredential(botApp1Id, rotation.credentialId);
+      expect(rotateResult.ok).toBe(true);
+
+      // Verify two clients were created
+      expect(clientsCreated).toHaveLength(2);
+      const activeClient2 = clientsCreated[1];
+      expect(activeClient2).toBeDefined();
+      if (!activeClient2) throw new Error("activeClient2 not found");
+
+      // Old client must be destroyed
+      expect(activeClient1.destroyed).toBe(true);
+      // New client must be active and ready
+      expect(activeClient2.isReady()).toBe(true);
+      expect(activeClient2.tokenProvided).toBe(rotationToken);
+
+      // 6. Verify database truth in MySQL:
+      // The promoted credential is ACTIVE, and superseded credential was deleted
+      const activeFromDb = await clientA.getActiveCredential(botApp1Id);
+      expect(activeFromDb?.credentialId).toBe(rotation.credentialId);
+      expect(activeFromDb?.token).toBe(rotationToken);
+
+      // 7. Verify crash-recovery convergence:
+      // Worker restarts with a completely clean manager (no memory state)
+      const restartedManager = new BotRuntimeManager({
+        client: clientA,
+        logger: testLogger,
+        clientFactory,
+      });
+
+      await restartedManager.handleOwnershipChange(botApp1Id, "OWNED");
+      expect(restartedManager.isRunning(botApp1Id)).toBe(true);
+      expect(restartedManager.getActiveRuntime(botApp1Id)?.credentialId).toBe(rotation.credentialId);
+
+      // Cleanup
+      await manager.stopAll();
+      await restartedManager.stopAll();
+      await clientA.release(botApp1Id);
+    });
   });
 });
