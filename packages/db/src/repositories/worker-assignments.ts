@@ -259,3 +259,31 @@ export async function findAssignment(
     .limit(1);
   return row;
 }
+
+/**
+ * Lists all live, active WorkerAssignments currently held by this authenticated worker.
+ *
+ * Checks worker status is ACTIVE and checks leaseExpiresAt > now() using MySQL's
+ * authoritative clock.
+ */
+export async function listActiveAssignmentsForWorker(
+  db: Db,
+  workerId: string,
+): Promise<WorkerAssignment[]> {
+  const worker = await findWorkerById(db, workerId);
+  if (!worker || worker.status !== "ACTIVE") {
+    return [];
+  }
+
+  return db
+    .select()
+    .from(workerAssignments)
+    .where(
+      and(
+        eq(workerAssignments.workerId, workerId),
+        eq(workerAssignments.status, "ACTIVE"),
+        gt(workerAssignments.leaseExpiresAt, sql`now()`),
+      ),
+    );
+}
+

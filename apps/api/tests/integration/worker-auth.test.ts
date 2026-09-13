@@ -413,3 +413,133 @@ describe.skipIf(!dbAvailable)("live revocation of an already-issued token (real 
     expect(assignment?.workerId).toBe(workerId);
   });
 });
+
+describe.skipIf(!dbAvailable)("capability discovery and current assignments (real database, Phase 4A)", () => {
+  let dbClient: DatabaseClient;
+  let app: ReturnType<typeof createApp>;
+  const prefix = `p4a-disc-${Date.now().toString(36)}`;
+  const workerA = `${prefix}-wA`;
+  const workerB = `${prefix}-wB`;
+  let tokenA: string;
+  let tokenB: string;
+  let tenantActiveId: string;
+  let tenantDisabledId: string;
+  let botAppEligibleA: string;
+  let botAppEligibleBOnly: string;
+  let botAppDisabledTenant: string;
+
+  beforeAll(async () => {
+    dbClient = createDatabaseClient(loadDatabaseConfig());
+    app = createApp({
+      logger: createLogger({ service: "apps/api-disc-test", write: () => undefined }),
+      db: dbClient.db,
+      signingKeys: SIGNING_KEYS,
+      checkDatabaseReady: () => checkDatabaseConnectivity(dbClient.pool),
+    });
+
+    const pA = await provisionWorker(dbClient.db, workerA);
+    const pB = await provisionWorker(dbClient.db, workerB);
+
+    const exA = await app.request("/internal/workers/exchange", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workerId: workerA, bootstrapSecret: pA.bootstrapSecret }),
+    });
+    tokenA = ((await exA.json()) as { accessToken: string }).accessToken;
+
+    const exB = await app.request("/internal/workers/exchange", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workerId: workerB, bootstrapSecret: pB.bootstrapSecret }),
+    });
+    tokenB = ((await exB.json()) as { accessToken: string }).accessToken;
+
+    // Active tenant with 2 bot applications
+    const tActive = await createTenant(dbClient.db, `${prefix}-tenant-active`);
+    tenantActiveId = tActive.id;
+
+    const baseSnowflake = BigInt(Date.now()) * 1000n;
+    // botAppEligibleA: both workerA and workerB are provisioned before creating botApp,
+    // so assignEligibleWorkers assigns up to 2 active workers (both workerA and workerB)
+    const bApp1 = await createBotApplication(dbClient.db, tenantActiveId, baseSnowflake + 1n, `${prefix}-bot1`);
+    botAppEligibleA = bApp1.id;
+
+    // Create a disabled tenant
+    const tDisabled = await createTenant(dbClient.db, `${prefix}-tenant-disabled`);
+    tenantDisabledId = tDisabled.id;
+    const bAppDisabled = await createBotApplication(dbClient.db, tenantDisabledId, baseSnowflake + 2n, `${prefix}-bot-dis`);
+    botAppDisabledTenant = bAppDisabled.id;
+    // Disable tenant
+    await dbClient.pool.query("UPDATE tenants SET status = 'DISABLED' WHERE id = ?", [tenantDisabledId]);
+
+    // Create a bot application where only workerB is eligible (manually insert eligibility for B only)
+    const bAppBOnly = await createBotApplication(dbClient.db, tenantActiveId, baseSnowflake + 3n, `${prefix}-bot-B-only`);
+    botAppEligibleBOnly = bAppBOnly.id;
+
+    await dbClient.pool.query("DELETE FROM worker_eligibility WHERE bot_application_id = ?", [botAppEligibleBOnly]);
+    await dbClient.pool.query("INSERT INTO worker_eligibility (worker_id, bot_application_id) VALUES (?, ?)", [
+      workerB,
+      botAppEligibleBOnly,
+    ]);
+  });
+
+
+  afterAll(async () => {
+    await dbClient.pool.query("DELETE FROM tenants WHERE id IN (?, ?)", [tenantActiveId, tenantDisabledId]);
+    await dbClient.pool.query("DELETE FROM workers WHERE id IN (?, ?)", [workerA, workerB]);
+    await dbClient.close();
+  });
+
+  it("workerA discovers botAppEligibleA, but NOT botAppEligibleBOnly or botAppDisabledTenant (Amendment 1)", async () => {
+    const res = await app.request("/internal/worker-assignments/eligible", {
+      headers: { authorization: `Bearer ${tokenA}` },
+    });
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { eligibleWork: { botApplicationId: string; claimable: boolean }[] };
+
+    const ids = data.eligibleWork.map((w) => w.botApplicationId);
+    expect(ids).toContain(botAppEligibleA);
+    expect(ids).not.toContain(botAppEligibleBOnly);
+    expect(ids).not.toContain(botAppDisabledTenant);
+
+    // Verify minimal capability shape (no foreign worker ID or lease info leaked)
+    for (const item of data.eligibleWork) {
+      expect(item).toHaveProperty("botApplicationId");
+      expect(item).toHaveProperty("claimable", true);
+      expect(item).not.toHaveProperty("workerId");
+      expect(item).not.toHaveProperty("leaseExpiresAt");
+    }
+  });
+
+  it("when workerA claims botAppEligibleA, it moves from /eligible to /current for workerA, and vanishes from workerB's /eligible", async () => {
+    // WorkerA claims botAppEligibleA
+    const claimRes = await app.request(`/internal/worker-assignments/${botAppEligibleA}/claim`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${tokenA}` },
+    });
+    expect(claimRes.status).toBe(200);
+
+    // WorkerA's /current now lists botAppEligibleA
+    const currentA = await app.request("/internal/worker-assignments/current", {
+      headers: { authorization: `Bearer ${tokenA}` },
+    });
+    expect(currentA.status).toBe(200);
+    const currDataA = (await currentA.json()) as { assignments: { botApplicationId: string }[] };
+    expect(currDataA.assignments.map((a) => a.botApplicationId)).toContain(botAppEligibleA);
+
+    // WorkerB's /current does NOT list it
+    const currentB = await app.request("/internal/worker-assignments/current", {
+      headers: { authorization: `Bearer ${tokenB}` },
+    });
+    const currDataB = (await currentB.json()) as { assignments: { botApplicationId: string }[] };
+    expect(currDataB.assignments.map((a) => a.botApplicationId)).not.toContain(botAppEligibleA);
+
+    // WorkerB's /eligible does NOT list it while workerA holds a live lease (Amendment 1)
+    const eligibleB = await app.request("/internal/worker-assignments/eligible", {
+      headers: { authorization: `Bearer ${tokenB}` },
+    });
+    const eligDataB = (await eligibleB.json()) as { eligibleWork: { botApplicationId: string }[] };
+    expect(eligDataB.eligibleWork.map((w) => w.botApplicationId)).not.toContain(botAppEligibleA);
+  });
+});
+

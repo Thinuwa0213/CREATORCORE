@@ -46,7 +46,8 @@ export {
 } from "./repositories/workers.js";
 export type { Worker } from "./repositories/workers.js";
 
-export { isWorkerEligible } from "./repositories/worker-eligibility.js";
+export { isWorkerEligible, listClaimableWorkForWorker } from "./repositories/worker-eligibility.js";
+export type { ClaimableWorkItem } from "./repositories/worker-eligibility.js";
 // assignEligibleWorkers is deliberately NOT exported -- it is an internal
 // side effect of createBotApplication, never a standalone callable that
 // business code outside this package could invoke with an arbitrary
@@ -57,6 +58,7 @@ export {
   renewAssignment,
   releaseAssignment,
   findAssignment,
+  listActiveAssignmentsForWorker,
   DEFAULT_LEASE_DURATION_MS,
 } from "./repositories/worker-assignments.js";
 export type {
@@ -67,3 +69,4 @@ export type {
 
 export { recordAuditEvent } from "./repositories/audit-events.js";
 export type { RecordAuditEventInput } from "./repositories/audit-events.js";
+

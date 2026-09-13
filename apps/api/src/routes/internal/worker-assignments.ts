@@ -1,5 +1,12 @@
 import { Hono } from "hono";
-import { claimAssignment, recordAuditEvent, releaseAssignment, renewAssignment } from "@creatorcore/db";
+import {
+  claimAssignment,
+  listActiveAssignmentsForWorker,
+  listClaimableWorkForWorker,
+  recordAuditEvent,
+  releaseAssignment,
+  renewAssignment,
+} from "@creatorcore/db";
 import {
   createWorkerAuthMiddleware,
   type WorkerAuthDeps,
@@ -9,19 +16,36 @@ import {
 const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * Internal WorkerAssignment claim/renew/release endpoints (docs/adr/0006).
+ * Internal WorkerAssignment claim/renew/release and discovery endpoints (docs/adr/0006).
  * `createWorkerAuthMiddleware` runs before every handler here -- workerId
  * always comes from the verified access token's context value, NEVER from
- * a request body/path parameter, so a caller cannot claim/renew/release on
- * behalf of a different workerId by supplying one in the request.
+ * a request body/path parameter, so a caller cannot discover, claim, renew,
+ * or release on behalf of a different workerId by supplying one in the request.
  *
- * Every outcome (success and denial) is recorded as an AuditEvent -- the
- * specific denial reason (not-eligible, worker-not-active, lease-held-by-
- * another-worker) is safe, allow-listed metadata, never a raw error object.
+ * Discovery (/eligible) returns ONLY work currently claimable by this worker
+ * (Amendment 1), never fleet state, foreign worker IDs, or other workers'
+ * lease timestamps. /current inspects assignments actively held by this worker.
  */
 export function createWorkerAssignmentRoutes(deps: WorkerAuthDeps): Hono<WorkerAuthEnv> {
   const route = new Hono<WorkerAuthEnv>();
   route.use("*", createWorkerAuthMiddleware(deps));
+
+  route.get("/eligible", async (c) => {
+    const workerId = c.get("workerId");
+    const eligibleWork = await listClaimableWorkForWorker(deps.db, workerId);
+    return c.json({ eligibleWork });
+  });
+
+  route.get("/current", async (c) => {
+    const workerId = c.get("workerId");
+    const assignments = await listActiveAssignmentsForWorker(deps.db, workerId);
+    return c.json({
+      assignments: assignments.map((a) => ({
+        botApplicationId: a.botApplicationId,
+        leaseExpiresAt: a.leaseExpiresAt,
+      })),
+    });
+  });
 
   route.post("/:botApplicationId/claim", async (c) => {
     const workerId = c.get("workerId");

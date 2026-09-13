@@ -1,6 +1,7 @@
-import { and, asc, eq, sql } from "drizzle-orm";
-import { workerEligibility, workers } from "../schema/index.js";
+import { and, asc, eq, isNull, lte, or, sql } from "drizzle-orm";
+import { botApplications, tenants, workerAssignments, workerEligibility, workers } from "../schema/index.js";
 import type { Db } from "../types.js";
+import { findWorkerById } from "./workers.js";
 
 const MAX_ELIGIBLE_WORKERS_PER_BOT_APPLICATION = 2;
 
@@ -61,3 +62,68 @@ export async function isWorkerEligible(
     .limit(1);
   return row !== undefined;
 }
+
+export interface ClaimableWorkItem {
+  botApplicationId: string;
+  claimable: true;
+}
+
+/**
+ * Lists BotApplications the authenticated worker is currently authorized and
+ * permitted to attempt to claim (Amendment 1: capability-oriented discovery).
+ *
+ * Scoped strictly to the authenticated workerId. Returns ONLY work where:
+ * 1. The worker is active (findWorkerById checks ACTIVE status)
+ * 2. The worker is assigned eligibility (workerEligibility)
+ * 3. The owning tenant is currently ACTIVE (disabled tenants have work omitted)
+ * 4. The BotApplication is currently claimable:
+ *    - never claimed (no workerAssignments row), OR
+ *    - status is 'RELEASED', OR
+ *    - status is 'ACTIVE' but the lease has expired against MySQL now()
+ *
+ * Deliberately does NOT return:
+ * - BotApplications held by other workers with live leases
+ * - BotApplications currently owned by this caller (inspect via /current)
+ * - Any foreign worker identity or foreign lease timestamp
+ */
+export async function listClaimableWorkForWorker(
+  db: Db,
+  workerId: string,
+): Promise<ClaimableWorkItem[]> {
+  const worker = await findWorkerById(db, workerId);
+  if (!worker || worker.status !== "ACTIVE") {
+    return [];
+  }
+
+  const rows = await db
+    .select({
+      botApplicationId: workerEligibility.botApplicationId,
+    })
+    .from(workerEligibility)
+    .innerJoin(botApplications, eq(botApplications.id, workerEligibility.botApplicationId))
+    .innerJoin(tenants, eq(tenants.id, botApplications.tenantId))
+    .leftJoin(
+      workerAssignments,
+      eq(workerAssignments.botApplicationId, workerEligibility.botApplicationId),
+    )
+    .where(
+      and(
+        eq(workerEligibility.workerId, workerId),
+        eq(tenants.status, "ACTIVE"),
+        or(
+          isNull(workerAssignments.botApplicationId),
+          eq(workerAssignments.status, "RELEASED"),
+          and(
+            eq(workerAssignments.status, "ACTIVE"),
+            lte(workerAssignments.leaseExpiresAt, sql`now()`),
+          ),
+        ),
+      ),
+    );
+
+  return rows.map((r) => ({
+    botApplicationId: r.botApplicationId,
+    claimable: true as const,
+  }));
+}
+

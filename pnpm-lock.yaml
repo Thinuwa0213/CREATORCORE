@@ -110,6 +110,15 @@ importers:
         specifier: ^14.27.0
         version: 14.27.0
     devDependencies:
+      '@creatorcore/api':
+        specifier: workspace:*
+        version: link:../api
+      '@creatorcore/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@hono/node-server':
+        specifier: ^2.1.1
+        version: 2.1.1(hono@4.13.7)
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

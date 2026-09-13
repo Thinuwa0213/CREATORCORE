@@ -25,4 +25,22 @@ describe("loadWorkerConfig", () => {
     const config = loadWorkerConfig({ WORKER_TOKEN_SIGNING_KEY: "e".repeat(32) });
     expect(config).not.toHaveProperty("WORKER_TOKEN_SIGNING_KEY");
   });
+
+  it("loads WORKER_BOOTSTRAP_SECRET and WORKER_ID when provided", () => {
+    const config = loadWorkerConfig({
+      WORKER_ID: "worker-1",
+      WORKER_BOOTSTRAP_SECRET: "secret-abc-123",
+    });
+    expect(config.WORKER_ID).toBe("worker-1");
+    expect(config.WORKER_BOOTSTRAP_SECRET).toBe("secret-abc-123");
+  });
+
+  it("never exposes DATABASE_URL — apps/worker must not hold database credentials", () => {
+    const fieldNames = Object.keys(workerConfigSchema.shape);
+    expect(fieldNames).not.toContain("DATABASE_URL");
+
+    const config = loadWorkerConfig({ DATABASE_URL: "mysql://leak@localhost:3306/db" });
+    expect(config).not.toHaveProperty("DATABASE_URL");
+  });
 });
+

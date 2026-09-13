@@ -5,7 +5,7 @@ import { registerShutdownHandlers } from "./signals.js";
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
-function bootstrap() {
+async function bootstrap() {
   let config;
   try {
     config = loadWorkerConfig();
@@ -27,6 +27,27 @@ function bootstrap() {
   // Discord functionality.
   const workerIdContext = config.WORKER_ID ? { workerId: config.WORKER_ID } : {};
 
+  let coordinator: import("./runtime/assignment-coordinator.js").AssignmentCoordinator | undefined;
+
+  if (config.WORKER_ID && config.WORKER_BOOTSTRAP_SECRET) {
+    const { ControlPlaneClient } = await import("./client/control-plane-client.js");
+    const { AssignmentCoordinator } = await import("./runtime/assignment-coordinator.js");
+
+    const client = new ControlPlaneClient({
+      apiBaseUrl: config.API_BASE_URL,
+      workerId: config.WORKER_ID,
+      bootstrapSecret: config.WORKER_BOOTSTRAP_SECRET,
+      logger,
+    });
+
+    coordinator = new AssignmentCoordinator({
+      client,
+      logger,
+    });
+
+    void coordinator.start();
+  }
+
   const heartbeat = setInterval(() => {
     logger.debug("worker heartbeat", { ...workerIdContext, state: lifecycle.state });
   }, HEARTBEAT_INTERVAL_MS);
@@ -35,10 +56,14 @@ function bootstrap() {
   logger.info("apps/worker started", { ...workerIdContext, apiBaseUrl: config.API_BASE_URL });
 
   registerShutdownHandlers(lifecycle, logger, {
-    onShutdown: () => {
+    onShutdown: async () => {
       clearInterval(heartbeat);
+      if (coordinator) {
+        await coordinator.stop();
+      }
     },
   });
 }
 
-bootstrap();
+void bootstrap();
+
