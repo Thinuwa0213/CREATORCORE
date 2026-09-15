@@ -18,7 +18,8 @@
     "build": "node scripts/check-build-gate.mjs",
     "audit": "pnpm audit --audit-level=high",
     "format": "prettier --check .",
-    "format:write": "prettier --write ."
+    "format:write": "prettier --write .",
+    "env:setup": "powershell -ExecutionPolicy Bypass -File scripts/setup-local-env.ps1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

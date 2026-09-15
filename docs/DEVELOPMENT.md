@@ -13,6 +13,57 @@ Four distinct environments, kept strictly separate:
 
 No environment shares credentials with another. `.env.example` documents variable _names_ only; actual values are never committed.
 
+## Local environment setup
+
+CreatorCore's local dev environment is a single root `.env` file (`docs/adr/0008-deployment-runtime-model.md`) — not per-app env files, not `.env.local`. `scripts/check-test-gate.mjs` and the `apps/api`/`packages/db` integration suites already load it this way via Node's native `process.loadEnvFile`.
+
+1. Run the bootstrap command:
+
+   ```bash
+   pnpm env:setup
+   ```
+
+   This generates `.env` at the repo root (refusing to overwrite an existing one unless you pass `-Force`), auto-generating every value that can safely be generated on your machine — `WORKER_TOKEN_SIGNING_KEY`, `BOT_CREDENTIAL_ENCRYPTION_KEY`, `BETTER_AUTH_SECRET`, `DISCORD_OAUTH_TOKEN_ENCRYPTION_KEY` (all independent, cryptographically random), and a stable `WORKER_ID` — and leaving three values blank for you to fill in.
+
+2. Open the generated `.env`.
+3. Fill in `DATABASE_URL` — your own local MySQL 8.0+ instance (`docs/DATABASE_RULES.md`).
+4. Fill in `DISCORD_CLIENT_ID` — from the Discord Developer Portal, your CreatorCore application's OAuth2 page.
+5. Fill in `DISCORD_CLIENT_SECRET` — same page, "Reset Secret" if you don't already have one.
+6. In that same Discord application's **OAuth2 → Redirects**, add:
+
+   ```text
+   http://localhost:3000/api/auth/callback/discord
+   ```
+
+   This is not a guess — it follows directly from the code: Better Auth's `baseURL` is set to `WEB_APP_ORIGIN` (`apps/api/src/auth/index.ts`), Better Auth's own default callback route is `{baseURL}/callback/{providerId}` under its default `/api/auth` base path (`better-auth`'s `oauth2/utils.mjs`), the Discord provider is registered under the key `"discord"`, and `apps/web`'s `app/api/auth/[...all]/route.ts` transparently proxies every `/api/auth/*` request through to `apps/api`, byte-for-byte, so the browser only ever talks to the web origin. With the generated `.env`'s default `WEB_APP_ORIGIN=http://localhost:3000`, the exact callback URL is the one above. If you change `WEB_APP_ORIGIN`, the callback URL changes with it.
+
+7. Run CreatorCore (see "Running the apps locally" below).
+
+### How the root `.env` actually gets loaded today
+
+This is a real, current limitation — not something this bootstrap tooling changes, per its scope:
+
+- `pnpm test` / `pnpm test:integration` and the integration suites in `apps/api`/`packages/db`/`apps/worker` load the root `.env` automatically (`process.loadEnvFile`).
+- `apps/api` and `apps/worker`'s own `start` scripts (`node dist/index.js`) do **not** auto-load it. Load it explicitly with Node's built-in flag, e.g. from the repo root:
+
+  ```bash
+  node --env-file=.env apps/api/dist/index.js
+  node --env-file=.env apps/worker/dist/index.js
+  ```
+
+- `apps/web`'s `next dev` loads Next.js's own `.env*` files from `apps/web/`, not the repo-root `.env`. Until a future phase addresses this, export **only** the handful of values `apps/web`'s own schemas declare (`packages/config/src/web.ts` + `web-server.ts`: `NODE_ENV`, `NEXT_PUBLIC_APP_NAME`, `API_INTERNAL_URL`) into your shell session first — never the whole file. `apps/web` must never receive server secrets or `DATABASE_URL` (`docs/adr/0001`/`0002`, `docs/SECURITY.md`), and blanket-exporting every line of the root `.env` into the same process that then runs `next dev` would hand every apps/api-only secret to `apps/web`'s much larger, browser-tooling-heavy dependency tree — exactly the boundary `webConfigSchema`'s own header comment exists to prevent. In PowerShell:
+
+  ```powershell
+  $env:NODE_ENV = "development"
+  $env:NEXT_PUBLIC_APP_NAME = "CreatorCore"
+  $env:API_INTERNAL_URL = "http://localhost:8787"
+  pnpm --filter @creatorcore/web dev
+  ```
+
+### `WORKER_ID` and worker provisioning
+
+The bootstrap script generates a stable `WORKER_ID` (a UUID, generated once — re-running the script without `-Force` never changes it). That ID alone does not let `apps/worker` complete its control-plane bootstrap exchange (`docs/adr/0011-worker-service-identity.md`): `apps/api` only accepts a worker ID that has a matching row in the database, created via `packages/db`'s `provisionWorker()`, which also mints the `WORKER_BOOTSTRAP_SECRET` the worker would need to present. No script or route wires that provisioning step up yet (see the comment on `provisionWorker` in `packages/db/src/repositories/workers.ts`). Until it exists, `apps/worker` starts and runs its heartbeat exactly as it does today with `WORKER_ID` unset — this is expected, not a bug in the bootstrap tooling.
+
 ## Setup (Phase 2 state)
 
 ```bash
