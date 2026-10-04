@@ -68,12 +68,30 @@ async function proxyToApi(request: Request, pathSegments: string[]): Promise<Res
 
   const hasBody = request.method !== "GET" && request.method !== "HEAD";
 
-  const upstreamResponse = await fetch(targetUrl, {
-    method: request.method,
-    headers: forwardedHeaders,
-    body: hasBody ? await request.arrayBuffer() : null,
-    redirect: "manual",
-  });
+  let upstreamResponse: Response;
+  try {
+    upstreamResponse = await fetch(targetUrl, {
+      method: request.method,
+      headers: forwardedHeaders,
+      body: hasBody ? await request.arrayBuffer() : null,
+      redirect: "manual",
+    });
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[apps/web auth-proxy] Failed to connect to API backend at ${targetUrl.origin} (${errorMsg}). Is apps/api running? (e.g. 'pnpm dev:api')`,
+    );
+    return new Response(
+      JSON.stringify({
+        error: "upstream_unavailable",
+        message: `Authentication backend at ${targetUrl.origin} is unreachable. Please ensure apps/api is running.`,
+      }),
+      {
+        status: 503,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  }
 
   const responseHeaders = new Headers();
   upstreamResponse.headers.forEach((value, key) => {

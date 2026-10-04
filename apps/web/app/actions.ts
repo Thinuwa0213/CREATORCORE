@@ -68,3 +68,96 @@ export async function onboardBotAction(
 
   return { ok: true, botApplicationId: res.data.botApplicationId };
 }
+
+export interface RotateBotCredentialActionResult {
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * Server Action to rotate a BotApplication credential.
+ * Calls `POST /app/tenants/:tenantId/bot-applications/:botApplicationId/credential/rotate` in apps/api.
+ *
+ * Security guarantees:
+ * - Token is forwarded directly to apps/api for envelope encryption and rotation
+ * - Token is NEVER returned in this action result payload
+ * - Token is NEVER serialized back to the client
+ */
+export async function rotateBotCredentialAction(
+  tenantId: string,
+  botApplicationId: string,
+  token: string,
+): Promise<RotateBotCredentialActionResult> {
+  if (!tenantId || !botApplicationId || !token) {
+    return { ok: false, error: "Missing required fields" };
+  }
+
+  const res = await callApiServer<{ status: string }>(
+    `/app/tenants/${encodeURIComponent(tenantId)}/bot-applications/${encodeURIComponent(botApplicationId)}/credential/rotate`,
+    {
+      method: "POST",
+      body: { token },
+    },
+  );
+
+  if (!res.ok) {
+    return { ok: false, error: res.error ?? "Failed to rotate bot credentials" };
+  }
+
+  return { ok: true };
+}
+
+export interface BillingActionResult {
+  ok: boolean;
+  plan?: string;
+  error?: string;
+}
+
+/**
+ * Server Action to upgrade or change a tenant's subscription plan.
+ */
+export async function upgradePlanAction(
+  tenantId: string,
+  plan: "FREE" | "PRO" | "ENTERPRISE",
+  interval: "month" | "year",
+): Promise<BillingActionResult> {
+  if (!tenantId || !plan) {
+    return { ok: false, error: "Missing required fields" };
+  }
+
+  const res = await callApiServer<{ success: boolean; plan: string }>(
+    `/app/tenants/${encodeURIComponent(tenantId)}/billing/checkout`,
+    {
+      method: "POST",
+      body: { plan, interval },
+    },
+  );
+
+  if (!res.ok || !res.data) {
+    return { ok: false, error: res.error ?? "Failed to update plan" };
+  }
+
+  return { ok: true, plan: res.data.plan };
+}
+
+/**
+ * Server Action to cancel or downgrade a tenant's subscription plan.
+ */
+export async function cancelPlanAction(tenantId: string): Promise<BillingActionResult> {
+  if (!tenantId) {
+    return { ok: false, error: "Missing tenant ID" };
+  }
+
+  const res = await callApiServer<{ success: boolean; plan: string }>(
+    `/app/tenants/${encodeURIComponent(tenantId)}/billing/cancel`,
+    {
+      method: "POST",
+    },
+  );
+
+  if (!res.ok || !res.data) {
+    return { ok: false, error: res.error ?? "Failed to cancel subscription" };
+  }
+
+  return { ok: true, plan: res.data.plan };
+}

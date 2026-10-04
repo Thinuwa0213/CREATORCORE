@@ -19,3 +19,4 @@ export * from "./bot-credentials.js";
 export * from "./auth.js";
 export * from "./discord-oauth-credentials.js";
 export * from "./bot-runtime-status.js";
+export * from "./subscriptions.js";

@@ -188,6 +188,7 @@ describe.skipIf(!dbAvailable)(
       expect(await statusBefore.json()).toEqual({
         status: "NOT_CONFIGURED",
         botApplicationId: null,
+        botName: null,
       });
 
       // 3. Onboard the BotApplication + initial credential.
@@ -216,7 +217,11 @@ describe.skipIf(!dbAvailable)(
         `/app/tenants/${tenantId}/guilds/${guildId}/runtime-status`,
         { headers: { origin: WEB_APP_ORIGIN } },
       );
-      expect(await statusAfterOnboard.json()).toEqual({ status: "UNASSIGNED", botApplicationId });
+      expect(await statusAfterOnboard.json()).toEqual({
+        status: "UNASSIGNED",
+        botApplicationId,
+        botName: "Onboarding E2E Bot",
+      });
 
       // 5. The provisioned worker discovers and claims the assignment
       //    (eligibility was activated LAST inside the onboarding transaction).
@@ -243,6 +248,7 @@ describe.skipIf(!dbAvailable)(
       expect(await statusAfterClaim.json()).toEqual({
         status: "ACTIVE_ASSIGNMENT",
         botApplicationId,
+        botName: "Onboarding E2E Bot",
       });
 
       // 7. The worker reports READY.
@@ -264,7 +270,11 @@ describe.skipIf(!dbAvailable)(
           headers: { origin: WEB_APP_ORIGIN },
         },
       );
-      expect(await statusOnline.json()).toEqual({ status: "ONLINE", botApplicationId });
+      expect(await statusOnline.json()).toEqual({
+        status: "ONLINE",
+        botApplicationId,
+        botName: "Onboarding E2E Bot",
+      });
 
       // 9. A DIFFERENT worker cannot report status for this BotApplication
       //    (not the current lease-holder).

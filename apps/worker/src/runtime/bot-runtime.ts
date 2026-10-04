@@ -1,5 +1,7 @@
+import type { ChatInputCommandInteraction } from "discord.js";
 import type { Logger } from "@creatorcore/logger";
 import type { IDiscordClient } from "./discord-client.js";
+import { type CommandRegistry, createDefaultCommandRegistry } from "../commands/index.js";
 
 export interface BotRuntimeOptions {
   botApplicationId: string;
@@ -7,6 +9,8 @@ export interface BotRuntimeOptions {
   client: IDiscordClient;
   logger: Logger;
   readyTimeoutMs?: number;
+  commandRegistry?: CommandRegistry;
+  onFatalError?: (category: string) => void;
 }
 
 /**
@@ -30,6 +34,10 @@ export class BotRuntime {
   private client: IDiscordClient | null;
   private readonly logger: Logger;
   private readonly readyTimeoutMs: number;
+  private readonly commandRegistry: CommandRegistry;
+  private readonly onFatalError?: ((category: string) => void) | undefined;
+  private interactionListener?: ((...args: unknown[]) => void) | undefined;
+  private invalidatedListener?: (() => void) | undefined;
   private connected = false;
 
   constructor(options: BotRuntimeOptions) {
@@ -38,6 +46,8 @@ export class BotRuntime {
     this.client = options.client;
     this.logger = options.logger;
     this.readyTimeoutMs = options.readyTimeoutMs ?? 15_000;
+    this.commandRegistry = options.commandRegistry ?? createDefaultCommandRegistry();
+    this.onFatalError = options.onFatalError;
   }
 
   public isConnected(): boolean {
@@ -73,11 +83,61 @@ export class BotRuntime {
         client.removeListener("error", onError);
       };
 
-      const onReady = () => {
+      const onReady = async () => {
         if (settled) return;
         settled = true;
         cleanupListeners();
         this.connected = true;
+
+        // Register slash commands if client supports application command registration
+        if (typeof client.registerCommands === "function") {
+          try {
+            const commandData = this.commandRegistry.toApplicationCommandData();
+            await client.registerCommands(commandData);
+            this.logger.info("slash commands registered with discord", {
+              botApplicationId: this.botApplicationId,
+              commandCount: commandData.length,
+            });
+          } catch (regErr: unknown) {
+            this.logger.warn("failed to register slash commands", {
+              botApplicationId: this.botApplicationId,
+              error: regErr instanceof Error ? regErr.message : String(regErr),
+            });
+          }
+        }
+
+        // Attach interaction listener for slash commands
+        this.interactionListener = (interaction: unknown) => {
+          if (interaction && typeof interaction === "object" && "isChatInputCommand" in interaction) {
+            const chatInput = interaction as ChatInputCommandInteraction;
+            if (chatInput.isChatInputCommand()) {
+              this.commandRegistry
+                .handleInteraction(chatInput, {
+                  botApplicationId: this.botApplicationId,
+                  logger: this.logger,
+                  clientPing: typeof client.getPing === "function" ? client.getPing() : undefined,
+                })
+                .catch((dispatchErr: unknown) => {
+                  this.logger.error("unhandled interaction dispatch error", {
+                    botApplicationId: this.botApplicationId,
+                    error: dispatchErr instanceof Error ? dispatchErr.message : String(dispatchErr),
+                  });
+                });
+            }
+          }
+        };
+        client.on("interactionCreate", this.interactionListener);
+
+        this.invalidatedListener = () => {
+          this.connected = false;
+          this.logger.warn("discord bot session invalidated by gateway (token reset or revoked)", {
+            botApplicationId: this.botApplicationId,
+            credentialId: this.credentialId,
+          });
+          this.onFatalError?.("LOGIN_REJECTED");
+        };
+        client.on("invalidated", this.invalidatedListener);
+
         this.logger.info("bot runtime connected and ready", {
           botApplicationId: this.botApplicationId,
           credentialId: this.credentialId,
@@ -134,6 +194,14 @@ export class BotRuntime {
   public async stop(): Promise<void> {
     this.connected = false;
     if (this.client) {
+      if (this.interactionListener) {
+        this.client.removeListener("interactionCreate", this.interactionListener);
+        this.interactionListener = undefined;
+      }
+      if (this.invalidatedListener) {
+        this.client.removeListener("invalidated", this.invalidatedListener);
+        this.invalidatedListener = undefined;
+      }
       try {
         await this.client.destroy();
       } catch (err) {

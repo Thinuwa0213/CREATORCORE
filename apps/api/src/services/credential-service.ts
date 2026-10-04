@@ -3,6 +3,7 @@ import type { DatabaseClient } from "@creatorcore/db";
 import {
   createInitialActiveCredential,
   createPendingCredential,
+  findActiveCredential,
   getActiveCredentialForAssignedWorker,
   getPendingCredentialForAssignedWorker,
   promotePendingCredential,
@@ -36,6 +37,20 @@ export class CredentialService {
   private readonly keys: CredentialEncryptionKeys;
   private readonly logger: Logger;
   private readonly validator: DiscordValidator;
+  private readonly botProfileCache = new Map<
+    string,
+    {
+      profile: {
+        id: string;
+        username: string;
+        discriminator: string;
+        avatar: string | null;
+        avatarUrl: string | null;
+        globalName: string | null;
+      };
+      expiresAt: number;
+    }
+  >();
 
   constructor(options: CredentialServiceOptions) {
     this.db = options.db;
@@ -358,5 +373,79 @@ export class CredentialService {
     });
 
     return result;
+  }
+
+  /**
+   * Fetches the live Discord bot profile (/users/@me) using the decrypted active credential.
+   * Caches response for 5 minutes to avoid Discord rate limits.
+   */
+  public async getBotUserProfile(botApplicationId: string): Promise<{
+    id: string;
+    username: string;
+    discriminator: string;
+    avatar: string | null;
+    avatarUrl: string | null;
+    globalName: string | null;
+  } | null> {
+    const cached = this.botProfileCache.get(botApplicationId);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.profile;
+    }
+
+    const credRow = await findActiveCredential(this.db, botApplicationId);
+    if (!credRow) return null;
+
+    try {
+      const plaintext = decryptBotCredential(
+        {
+          ciphertext: Buffer.from(credRow.ciphertext),
+          nonce: Buffer.from(credRow.nonce),
+          authTag: Buffer.from(credRow.authTag),
+          keyVersion: credRow.keyVersion,
+        },
+        {
+          botApplicationId: credRow.botApplicationId,
+          credentialId: credRow.id,
+        },
+        this.keys,
+      );
+
+      const res = await fetch("https://discord.com/api/v10/users/@me", {
+        headers: { Authorization: `Bot ${plaintext}` },
+      });
+      if (!res.ok) {
+        return null;
+      }
+      const data = (await res.json()) as {
+        id: string;
+        username: string;
+        discriminator: string;
+        avatar: string | null;
+        global_name: string | null;
+      };
+
+      const avatarUrl = data.avatar
+        ? `https://cdn.discordapp.com/avatars/${data.id}/${data.avatar}.${data.avatar.startsWith("a_") ? "gif" : "png"}?size=256`
+        : `https://cdn.discordapp.com/embed/avatars/${Number((BigInt(data.id) >> 22n) % 6n)}.png`;
+
+      const profile = {
+        id: data.id,
+        username: data.username,
+        discriminator: data.discriminator,
+        avatar: data.avatar,
+        avatarUrl,
+        globalName: data.global_name,
+      };
+
+      this.botProfileCache.set(botApplicationId, {
+        profile,
+        expiresAt: Date.now() + 5 * 60 * 1000,
+      });
+
+      return profile;
+    } catch (err) {
+      this.logger.warn("discord.bot_profile_fetch_failed", { botApplicationId, err });
+      return null;
+    }
   }
 }

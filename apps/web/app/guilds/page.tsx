@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { callApiServer, getServerSession } from "../../lib/api";
-import { GuildCard, type GuildItem } from "../components/guild-card";
+import { type GuildItem } from "../components/guild-card";
+import { GuildsCommandDeck } from "./guilds-command-deck";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UserMenu } from "@/components/layout/user-menu";
 import { Button } from "@/components/ui/button";
@@ -60,47 +61,60 @@ export default async function GuildsPage() {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-8 sm:px-6">
-        <div className="flex items-center justify-between gap-4 mb-6 pb-4 border-b border-border">
+      <main className="max-w-6xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        {/* Header Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-5 border-b border-border/80">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-              Manageable Discord Guilds
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Control Plane Hub
+              </span>
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+              Server Command Deck
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Select a guild to connect or manage its branded bot.
+              Manage your authoritative Discord servers, active bot instances, and tenant configurations.
             </p>
           </div>
 
-          <Button variant="ghost" size="sm" asChild>
+          <Button variant="outline" size="sm" asChild className="self-start sm:self-center shadow-2xs">
             <a
               href="/"
               className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span>Home</span>
+              <span>Back to Home</span>
             </a>
           </Button>
         </div>
 
+        {/* Content Area */}
         {guilds.length === 0 ? (
           <div
             id="no-guilds-message"
-            className="rounded-lg border border-dashed border-border bg-card/50 p-10 text-center"
+            className="rounded-xl border border-dashed border-border bg-card/50 p-12 text-center"
           >
-            <Server className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-50" />
-            <p className="text-sm text-muted-foreground">
-              No manageable Discord guilds found for your account.
+            <Server className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-40" />
+            <h3 className="font-semibold text-foreground text-base">No manageable Discord guilds found</h3>
+            <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
+              We couldn&apos;t detect any Discord servers where you have Administrator or Manage Server permissions.
             </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Ensure you have Administrator or Manage Server permissions on Discord.
-            </p>
+            <div className="mt-5">
+              <Button variant="outline" size="sm" asChild>
+                <a
+                  href="https://discord.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs"
+                >
+                  Verify Discord Permissions
+                </a>
+              </Button>
+            </div>
           </div>
         ) : (
-          <ul id="manageable-guilds-list" className="p-0 m-0">
-            {guilds.map((guild) => (
-              <GuildCard key={guild.id} guild={guild} />
-            ))}
-          </ul>
+          <GuildsCommandDeck initialGuilds={guilds} />
         )}
       </main>
     </div>

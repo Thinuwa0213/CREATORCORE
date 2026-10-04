@@ -147,6 +147,12 @@ describe.skipIf(!dbAvailable)("Worker Runtime Real HTTP Integration (Phase 4A)",
     );
     botAppRaceId = b2.id;
 
+    // Ensure both test workers are explicitly eligible for test bot applications even if fleet has preexisting workers
+    await dbClient.pool.query(
+      "INSERT IGNORE INTO worker_eligibility (bot_application_id, worker_id) VALUES (?, ?), (?, ?), (?, ?), (?, ?)",
+      [botApp1Id, workerAId, botApp1Id, workerBId, botAppRaceId, workerAId, botAppRaceId, workerBId],
+    );
+
     // Real ControlPlaneClient instances pointing to the live test server
     clientA = new ControlPlaneClient({
       apiBaseUrl,

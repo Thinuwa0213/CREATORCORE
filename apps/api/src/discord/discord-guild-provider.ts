@@ -18,6 +18,8 @@ import {
 interface DiscordGuildApiRow {
   id: string;
   name: string;
+  icon?: string | null;
+  owner?: boolean;
   permissions: string;
 }
 
@@ -133,7 +135,12 @@ export class HttpDiscordGuildProvider implements DiscordGuildProvider {
     const rows = (await response.json()) as DiscordGuildApiRow[];
     return rows
       .filter((row) => hasGuildManagePermission(row.permissions))
-      .map((row) => ({ id: BigInt(row.id), name: row.name }));
+      .map((row) => ({
+        id: BigInt(row.id),
+        name: row.name,
+        icon: row.icon ?? null,
+        owner: Boolean(row.owner),
+      }));
   }
 
   private decryptStoredPayload(

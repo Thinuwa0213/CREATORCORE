@@ -10,6 +10,9 @@
   },
   "packageManager": "pnpm@11.25.0",
   "scripts": {
+    "dev": "pnpm --filter @creatorcore/web dev",
+    "dev:all": "concurrently -k -n \"web,api,worker\" -c \"cyan.bold,magenta.bold,green.bold\" \"pnpm dev\" \"pnpm dev:api\" \"pnpm dev:worker\"",
+    "dev:api": "pnpm --filter @creatorcore/api build && node --env-file=.env apps/api/dist/index.js",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit && turbo run typecheck",
     "test": "node scripts/check-test-gate.mjs unit",
@@ -19,12 +22,16 @@
     "audit": "pnpm audit --audit-level=high",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
-    "env:setup": "powershell -ExecutionPolicy Bypass -File scripts/setup-local-env.ps1"
+    "env:setup": "powershell -ExecutionPolicy Bypass -File scripts/setup-local-env.ps1",
+    "db:clear": "node scripts/clear-db.mjs",
+    "worker:provision": "node scripts/provision-worker.mjs",
+    "dev:worker": "pnpm --filter @creatorcore/worker build && node --env-file=.env apps/worker/dist/index.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.63.0",
     "@types/node": "^22.20.2",
+    "concurrently": "^10.0.5",
     "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.12.0",

@@ -29,7 +29,10 @@ export interface OnboardBotApplicationInput {
 
 export type OnboardBotApplicationResult =
   | { ok: true; botApplicationId: string }
-  | { ok: false; reason: "CREDENTIAL_VALIDATION_FAILED" | "BOT_ALREADY_REGISTERED" };
+  | {
+      ok: false;
+      reason: "CREDENTIAL_VALIDATION_FAILED" | "BOT_ALREADY_REGISTERED" | "BOT_NOT_IN_GUILD";
+    };
 
 /**
  * Failure-safe BotApplication onboarding (task Amendment 3). Authorization
@@ -77,6 +80,25 @@ export class BotOnboardingService {
         metadata: { reason: validation.reason },
       });
       return { ok: false, reason: "CREDENTIAL_VALIDATION_FAILED" };
+    }
+
+    const inGuild = await this.deps.validator.isBotInGuild(
+      input.token,
+      input.guildId.toString(),
+    );
+    if (!inGuild) {
+      await recordAuditEvent(this.deps.db, {
+        actorType: "USER",
+        actorUserId: input.userId,
+        tenantId: input.tenantId,
+        guildId: input.guildId,
+        targetType: "BotApplication",
+        targetId: "pending",
+        action: "credential.action_denied",
+        outcome: "DENIED",
+        metadata: { reason: "BOT_NOT_IN_GUILD" },
+      });
+      return { ok: false, reason: "BOT_NOT_IN_GUILD" };
     }
 
     const discordApplicationId = BigInt(validation.user.id);

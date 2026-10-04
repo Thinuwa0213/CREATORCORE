@@ -109,6 +109,12 @@ export class BotRuntimeManager {
         client: discordClient,
         logger: this.logger,
         readyTimeoutMs: this.readyTimeoutMs,
+        onFatalError: (category) => {
+          this.reportStatus(botApplicationId, {
+            state: "ERROR",
+            errorCategory: category,
+          });
+        },
       });
 
       await runtime.start(cred.token);

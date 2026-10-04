@@ -6,6 +6,8 @@
 export interface ManageableGuild {
   id: bigint;
   name: string;
+  icon?: string | null;
+  owner?: boolean;
 }
 
 export class DiscordUnavailableError extends Error {

@@ -1,10 +1,43 @@
 import { eq } from "drizzle-orm";
-import { guilds, tenantMemberships } from "../schema/index.js";
+import { botApplications, guildBotAssignments, guilds, tenantMemberships } from "../schema/index.js";
 import type { Db } from "../types.js";
 import { isDuplicateKeyError } from "../lib/duplicate-key-error.js";
 import { createGuild } from "./guilds.js";
 import { createTenant } from "./tenants.js";
 import { createTenantMembership, findTenantMembership } from "./tenants.js";
+
+export interface ConnectedGuildDetails {
+  guildId: bigint;
+  tenantId: string;
+  botName: string | null;
+}
+
+/**
+ * All guilds already connected under any tenant the given user is a
+ * member of — includes assigned bot application name if available.
+ */
+export async function listConnectedGuildsForUser(
+  db: Db,
+  userId: bigint,
+): Promise<ConnectedGuildDetails[]> {
+  const rows = await db
+    .select({
+      guildId: guilds.id,
+      tenantId: guilds.tenantId,
+      botName: botApplications.name,
+    })
+    .from(guilds)
+    .innerJoin(tenantMemberships, eq(tenantMemberships.tenantId, guilds.tenantId))
+    .leftJoin(guildBotAssignments, eq(guildBotAssignments.guildId, guilds.id))
+    .leftJoin(botApplications, eq(botApplications.id, guildBotAssignments.botApplicationId))
+    .where(eq(tenantMemberships.userId, userId));
+
+  return rows.map((r) => ({
+    guildId: r.guildId,
+    tenantId: r.tenantId,
+    botName: r.botName ?? null,
+  }));
+}
 
 /**
  * All guild IDs already connected under any tenant the given user is a
@@ -14,12 +47,8 @@ import { createTenantMembership, findTenantMembership } from "./tenants.js";
  * ("already connected") — never an authorization decision on its own.
  */
 export async function listConnectedGuildIdsForUser(db: Db, userId: bigint): Promise<bigint[]> {
-  const rows = await db
-    .select({ guildId: guilds.id })
-    .from(guilds)
-    .innerJoin(tenantMemberships, eq(tenantMemberships.tenantId, guilds.tenantId))
-    .where(eq(tenantMemberships.userId, userId));
-  return rows.map((row) => row.guildId);
+  const connected = await listConnectedGuildsForUser(db, userId);
+  return connected.map((row) => row.guildId);
 }
 
 export type ConnectGuildResult =

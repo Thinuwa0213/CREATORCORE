@@ -11,6 +11,7 @@ import { createAuthPathAllowlistMiddleware } from "./middleware/auth-path-allowl
 import type { Auth } from "./auth/index.js";
 import { createGuildRoutes } from "./routes/app/guilds.js";
 import { createTenantResourceRoutes } from "./routes/app/tenant-resources.js";
+import { createBillingRoutes } from "./routes/app/billing.js";
 import { createBotRuntimeStatusRoute } from "./routes/internal/bot-runtime-status.js";
 import type { DiscordGuildProvider } from "./discord/types.js";
 import type { BotOnboardingService } from "./services/bot-onboarding-service.js";
@@ -90,6 +91,17 @@ export function createApp(options: CreateAppOptions): Hono {
         webAppOrigin: options.webAppOrigin,
         botOnboardingService: options.botOnboardingService,
         credentialService: options.credentialService,
+      }),
+    );
+  }
+
+  if (options.auth && options.webAppOrigin) {
+    app.route(
+      "/app/tenants",
+      createBillingRoutes({
+        db: options.db,
+        auth: options.auth,
+        webAppOrigin: options.webAppOrigin,
       }),
     );
   }

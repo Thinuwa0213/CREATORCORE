@@ -128,7 +128,12 @@ export function createTenantResourceRoutes(
       token,
     });
     if (!result.ok) {
-      const status = result.reason === "CREDENTIAL_VALIDATION_FAILED" ? 422 : 409;
+      const status =
+        result.reason === "CREDENTIAL_VALIDATION_FAILED"
+          ? 422
+          : result.reason === "BOT_NOT_IN_GUILD"
+            ? 400
+            : 409;
       return c.json({ error: result.reason }, status);
     }
 
@@ -258,7 +263,65 @@ export function createTenantResourceRoutes(
       now: new Date(),
     });
 
-    return c.json({ status, botApplicationId: botApplicationId ?? null });
+    return c.json({
+      status,
+      botApplicationId: botApplicationId ?? null,
+      botName: resolved?.botName ?? null,
+    });
+  });
+
+  /**
+   * Fetches the live Discord bot profile for branding and identity previews.
+   */
+  route.get("/guilds/:guildId/bot-profile", async (c) => {
+    const userId = c.get("userId");
+    const tenantId = c.req.param("tenantId");
+    if (!tenantId) {
+      return c.json({ error: "invalid_request" }, 400);
+    }
+    const guildId = parseDiscordSnowflake(c.req.param("guildId"));
+    if (guildId === undefined) {
+      return c.json({ error: "INVALID_GUILD_ID" }, 400);
+    }
+
+    try {
+      await requireGuildAccess(deps.db, userId, tenantId, guildId);
+    } catch (error) {
+      const response = respondToAuthorizationError(c, error);
+      if (response) return response;
+      throw error;
+    }
+
+    const resolved = await resolveBotApplicationForGuild(deps.db, tenantId, guildId);
+    if (!resolved?.botApplicationId) {
+      return c.json({
+        configured: false,
+        botApplicationId: null,
+        botName: null,
+        botAvatarUrl: null,
+        botTag: null,
+      });
+    }
+
+    const botProfile = await deps.credentialService.getBotUserProfile(resolved.botApplicationId);
+
+    const botName = botProfile?.username ?? resolved.botName ?? null;
+    const botAvatarUrl = botProfile?.avatarUrl ?? null;
+    const botTag = botProfile
+      ? botProfile.discriminator && botProfile.discriminator !== "0"
+        ? `@${botProfile.username}#${botProfile.discriminator}`
+        : `@${botProfile.username.toLowerCase().replace(/[^a-z0-9_]/g, "")}`
+      : botName
+        ? `@${botName.toLowerCase().replace(/[^a-z0-9_]/g, "")}`
+        : null;
+
+    return c.json({
+      configured: true,
+      botApplicationId: resolved.botApplicationId,
+      botName,
+      botAvatarUrl,
+      botTag,
+    });
   });
 
   return route;

@@ -7,6 +7,7 @@ export interface ResolvedGuildBotAssignment {
   guildId: bigint;
   botApplicationId: string;
   tenantId: string;
+  botName?: string | null;
 }
 
 /**
@@ -28,6 +29,7 @@ export async function resolveBotApplicationForGuild(
       guildId: guildBotAssignments.guildId,
       botApplicationId: guildBotAssignments.botApplicationId,
       tenantId: guildBotAssignments.tenantId,
+      botName: botApplications.name,
     })
     .from(guildBotAssignments)
     .innerJoin(

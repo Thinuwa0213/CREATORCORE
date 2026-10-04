@@ -3,7 +3,16 @@ import { callApiServer, getServerSession } from "../../../../../lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { ShieldAlert, Bot, Activity, Server, ArrowRight, CheckCircle2 } from "lucide-react";
+import {
+  ShieldAlert,
+  Bot,
+  Activity,
+  Server,
+  ArrowRight,
+  CheckCircle2,
+  KeyRound,
+  AlertTriangle,
+} from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +41,7 @@ export default async function GuildOverviewPage({ params }: PageProps) {
       | "DEGRADED"
       | "OFFLINE";
     botApplicationId: string | null;
+    botName?: string | null;
   }>(
     `/app/tenants/${encodeURIComponent(tenantId)}/guilds/${encodeURIComponent(guildId)}/runtime-status`,
   );
@@ -58,7 +68,7 @@ export default async function GuildOverviewPage({ params }: PageProps) {
     );
   }
 
-  const { status, botApplicationId } = res.data;
+  const { status, botApplicationId, botName } = res.data;
 
   const getBadgeVariant = (
     st: string,
@@ -143,7 +153,11 @@ export default async function GuildOverviewPage({ params }: PageProps) {
             <div>
               <dt className="text-xs text-muted-foreground">Application</dt>
               <dd id="overview-bot-app-status" className="font-medium text-foreground mt-0.5">
-                {botApplicationId ? `Configured (${botApplicationId})` : "Not Configured"}
+                {botApplicationId
+                  ? botName
+                    ? `${botName} • Configured (${botApplicationId})`
+                    : `Configured (${botApplicationId})`
+                  : "Not Configured"}
               </dd>
             </div>
             <div>
@@ -180,13 +194,53 @@ export default async function GuildOverviewPage({ params }: PageProps) {
                   ? "Assigned to an active bot worker replica."
                   : status === "UNASSIGNED"
                     ? "Application configured; awaiting worker assignment."
-                    : "Bot credentials required to activate this server."}
+                    : status === "DEGRADED"
+                      ? "Discord rejected credentials or Gateway connection was dropped. Token rotation required."
+                      : status === "OFFLINE"
+                        ? "Bot runtime worker is offline."
+                        : "Bot credentials required to activate this server."}
             </span>
           </div>
+
+          {/* High-visibility Warning Banner if runtime degraded (e.g. token reset) */}
+          {status === "DEGRADED" && (
+            <div
+              id="degraded-runtime-warning"
+              role="alert"
+              className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-xs text-destructive space-y-3"
+            >
+              <div className="flex items-center gap-2.5 font-semibold text-sm">
+                <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
+                <span>Discord Authentication Failed (Bot Token Invalidated)</span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Discord rejected your bot credentials or the Gateway session was invalidated.
+                If you reset or regenerated your bot token in the Discord Developer Portal, the
+                running bot cannot connect until you rotate the credentials.
+              </p>
+              <div className="pt-1">
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  asChild
+                  className="gap-2 text-xs font-semibold"
+                >
+                  <a href={`/tenants/${tenantId}/guilds/${guildId}/setup`}>
+                    <KeyRound className="h-3.5 w-3.5" />
+                    <span>Rotate &amp; Reconnect Bot Token</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </a>
+                </Button>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Action Container */}
-        <div id="setup-action-container" className="mt-8 pt-6 border-t border-border">
+        <div
+          id="setup-action-container"
+          className="mt-8 pt-6 border-t border-border flex flex-wrap items-center justify-between gap-4"
+        >
           {status === "NOT_CONFIGURED" ? (
             <Button id="setup-bot-link" asChild size="default">
               <a
@@ -198,13 +252,36 @@ export default async function GuildOverviewPage({ params }: PageProps) {
               </a>
             </Button>
           ) : (
-            <div
-              id="bot-configured-notice"
-              className="flex items-center gap-2 text-sm font-medium text-success"
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              <span>✓ Bot application configured and active.</span>
-            </div>
+            <>
+              <div
+                id="bot-configured-notice"
+                className={`flex items-center gap-2 text-sm font-medium ${
+                  status === "DEGRADED" ? "text-destructive" : "text-success"
+                }`}
+              >
+                {status === "DEGRADED" ? (
+                  <>
+                    <ShieldAlert className="h-4 w-4 shrink-0" />
+                    <span>Bot credential attention required.</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    <span>✓ Bot application configured and active.</span>
+                  </>
+                )}
+              </div>
+
+              <Button variant="outline" size="sm" asChild>
+                <a
+                  href={`/tenants/${tenantId}/guilds/${guildId}/setup`}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <KeyRound className="h-3.5 w-3.5" />
+                  <span>Manage Bot Credentials</span>
+                </a>
+              </Button>
+            </>
           )}
         </div>
       </div>

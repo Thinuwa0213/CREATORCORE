@@ -28,8 +28,12 @@ export type { Guild } from "./repositories/guilds.js";
 export {
   connectGuildForUser,
   listConnectedGuildIdsForUser,
+  listConnectedGuildsForUser,
 } from "./repositories/guild-connections.js";
-export type { ConnectGuildResult } from "./repositories/guild-connections.js";
+export type {
+  ConnectGuildResult,
+  ConnectedGuildDetails,
+} from "./repositories/guild-connections.js";
 
 // Shared driver-error introspection, not a schema/query access point --
 // reused by apps/api's own service layer (bot-onboarding-service.ts) to
@@ -133,6 +137,17 @@ export {
   findAuthUserName,
   createTestUserSession,
 } from "./repositories/auth-accounts.js";
+
+export {
+  findSubscriptionByTenant,
+  upsertSubscriptionForTenant,
+} from "./repositories/subscriptions.js";
+export type {
+  TenantSubscription,
+  SubscriptionPlan,
+  SubscriptionStatus,
+  UpsertSubscriptionInput,
+} from "./repositories/subscriptions.js";
 
 // Better Auth's own Drizzle table objects (Phase 5, docs/adr/0003) ARE
 // exported here, unlike every CreatorCore-domain table above -- they are

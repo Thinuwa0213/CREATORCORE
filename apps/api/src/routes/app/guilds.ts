@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import {
   connectGuildForUser,
-  listConnectedGuildIdsForUser,
+  listConnectedGuildsForUser,
   recordAuditEvent,
   type DatabaseClient,
 } from "@creatorcore/db";
@@ -60,16 +60,22 @@ export function createGuildRoutes(deps: GuildRoutesDeps): Hono<AuthenticatedUser
       throw error;
     }
 
-    const connectedGuildIds = new Set(
-      (await listConnectedGuildIdsForUser(deps.db, userId)).map((id) => id.toString()),
-    );
+    const connectedGuilds = await listConnectedGuildsForUser(deps.db, userId);
+    const connectedMap = new Map(connectedGuilds.map((g) => [g.guildId.toString(), g]));
 
     return c.json({
-      guilds: manageableGuilds.map((guild) => ({
-        id: guild.id.toString(),
-        name: guild.name,
-        connected: connectedGuildIds.has(guild.id.toString()),
-      })),
+      guilds: manageableGuilds.map((guild) => {
+        const connected = connectedMap.get(guild.id.toString());
+        return {
+          id: guild.id.toString(),
+          name: guild.name,
+          icon: guild.icon ?? null,
+          owner: Boolean(guild.owner),
+          connected: Boolean(connected),
+          tenantId: connected?.tenantId,
+          botName: connected?.botName ?? null,
+        };
+      }),
     });
   });
 

@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits } from "discord.js";
+import { Client, GatewayIntentBits, type ApplicationCommandDataResolvable } from "discord.js";
 
 /**
  * Interface abstracting Discord Gateway Client capabilities needed by CreatorCore.
@@ -11,6 +11,8 @@ export interface IDiscordClient {
   on(event: string, listener: (...args: unknown[]) => void): this;
   once(event: string, listener: (...args: unknown[]) => void): this;
   removeListener(event: string, listener: (...args: unknown[]) => void): this;
+  registerCommands?(commands: unknown[]): Promise<void>;
+  getPing?(): number;
 }
 
 /**
@@ -51,6 +53,29 @@ export class RealDiscordClient implements IDiscordClient {
   public removeListener(event: string, listener: (...args: unknown[]) => void): this {
     this.client.removeListener(event, listener);
     return this;
+  }
+
+  /**
+   * Registers slash commands with the Discord Application Commands API.
+   * Also seeds connected guilds so commands update immediately in Discord without delay.
+   */
+  public async registerCommands(commands: unknown[]): Promise<void> {
+    const commandList = commands as ApplicationCommandDataResolvable[];
+    if (this.client.application) {
+      await this.client.application.commands.set(commandList);
+    }
+
+    for (const guild of this.client.guilds.cache.values()) {
+      try {
+        await guild.commands.set(commandList);
+      } catch {
+        // Guild-level registration is best effort
+      }
+    }
+  }
+
+  public getPing(): number {
+    return this.client.ws.ping;
   }
 }
 

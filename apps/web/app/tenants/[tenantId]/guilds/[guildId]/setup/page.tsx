@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getServerSession } from "../../../../../../lib/api";
+import { callApiServer, getServerSession } from "../../../../../../lib/api";
 import { BotSetupForm } from "../../../../../components/bot-setup-form";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
@@ -20,6 +20,25 @@ export default async function BotSetupPage({ params }: PageProps) {
   }
 
   const { tenantId, guildId } = await params;
+
+  const res = await callApiServer<{
+    status:
+      | "NOT_CONFIGURED"
+      | "PENDING_CREDENTIAL"
+      | "UNASSIGNED"
+      | "ACTIVE_ASSIGNMENT"
+      | "ONLINE"
+      | "DEGRADED"
+      | "OFFLINE";
+    botApplicationId: string | null;
+    botName?: string | null;
+  }>(
+    `/app/tenants/${encodeURIComponent(tenantId)}/guilds/${encodeURIComponent(guildId)}/runtime-status`,
+  );
+
+  const initialStatus = res.ok && res.data ? res.data.status : "NOT_CONFIGURED";
+  const botApplicationId = res.ok && res.data ? res.data.botApplicationId : null;
+  const currentBotName = res.ok && res.data ? res.data.botName : null;
 
   return (
     <div className="space-y-6">
@@ -43,7 +62,13 @@ export default async function BotSetupPage({ params }: PageProps) {
       </div>
 
       <div className="py-2">
-        <BotSetupForm tenantId={tenantId} guildId={guildId} />
+        <BotSetupForm
+          tenantId={tenantId}
+          guildId={guildId}
+          initialStatus={initialStatus}
+          botApplicationId={botApplicationId}
+          currentBotName={currentBotName}
+        />
       </div>
     </div>
   );

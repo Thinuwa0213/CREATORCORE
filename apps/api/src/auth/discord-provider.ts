@@ -25,6 +25,7 @@ interface DiscordProfile {
   id: string;
   username?: string;
   global_name?: string | null;
+  avatar?: string | null;
 }
 
 export function buildDiscordSocialProvider(config: DiscordProviderConfig) {
@@ -34,8 +35,14 @@ export function buildDiscordSocialProvider(config: DiscordProviderConfig) {
     disableDefaultScope: true,
     scope: ["identify", "guilds"],
     mapProfileToUser: (profile: DiscordProfile) => ({
+      name: profile.global_name ?? profile.username ?? "Discord User",
       email: `discord-${profile.id}@users.creatorcore.internal`,
       emailVerified: false,
+      ...(profile.avatar
+        ? {
+            image: `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`,
+          }
+        : {}),
     }),
   };
 }

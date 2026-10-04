@@ -82,6 +82,21 @@ function Get-RepoRoot {
 function Assert-GitAvailable {
     $gitCmd = Get-Command git -ErrorAction SilentlyContinue
     if (-not $gitCmd) {
+        # Check standard Windows Git locations if terminal session hasn't refreshed PATH yet
+        $candidates = @(
+            "C:\Program Files\Git\cmd",
+            "C:\Program Files (x86)\Git\cmd",
+            (Join-Path $env:LOCALAPPDATA "Programs\Git\cmd")
+        )
+        foreach ($dir in $candidates) {
+            if (Test-Path (Join-Path $dir "git.exe")) {
+                $env:Path = "$dir;$env:Path"
+                $gitCmd = Get-Command git -ErrorAction SilentlyContinue
+                if ($gitCmd) { break }
+            }
+        }
+    }
+    if (-not $gitCmd) {
         throw "git is required to verify this file is safely ignored, but was not found on PATH. Aborting without writing anything."
     }
 }
