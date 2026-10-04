@@ -149,6 +149,15 @@ export type {
   UpsertSubscriptionInput,
 } from "./repositories/subscriptions.js";
 
+export {
+  getTenantTotalStorageUsed,
+  getMediaAssetForGuild,
+  upsertMediaAsset,
+  deleteMediaAsset,
+} from "./repositories/media-assets.js";
+export type { MediaAssetRecord } from "./repositories/media-assets.js";
+
+
 // Better Auth's own Drizzle table objects (Phase 5, docs/adr/0003) ARE
 // exported here, unlike every CreatorCore-domain table above -- they are
 // Better Auth's own infrastructure schema, handed directly to its Drizzle

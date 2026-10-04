@@ -35,3 +35,7 @@ pnpm-debug.log*
 # Claude Code local settings
 .claude/settings.local.json
 .agents
+
+# Uploaded storage assets
+storage/
+!storage/.gitkeep

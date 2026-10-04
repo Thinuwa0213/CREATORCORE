@@ -77,8 +77,9 @@ export async function callApiServer<T = unknown>(
     .getAll()
     .map((c) => `${c.name}=${c.value}`)
     .join("; ");
-  if (cookieStr) {
-    forwardHeaders.set("cookie", cookieStr);
+  const rawCookie = cookieStr || reqHeaders.get("cookie");
+  if (rawCookie) {
+    forwardHeaders.set("cookie", rawCookie);
   }
 
   // Forward Origin header verbatim for CSRF check
@@ -95,7 +96,9 @@ export async function callApiServer<T = unknown>(
     }
   }
 
-  if (options.body !== undefined) {
+  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+
+  if (options.body !== undefined && !isFormData) {
     forwardHeaders.set("content-type", "application/json");
   }
 
@@ -106,7 +109,7 @@ export async function callApiServer<T = unknown>(
       cache: "no-store",
     };
     if (options.body !== undefined) {
-      init.body = JSON.stringify(options.body);
+      init.body = isFormData ? (options.body as FormData) : JSON.stringify(options.body);
     }
 
     const res = await fetch(`${API_INTERNAL_URL}${subPath}`, init);

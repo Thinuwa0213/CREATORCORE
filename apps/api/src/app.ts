@@ -16,9 +16,11 @@ import { createBotRuntimeStatusRoute } from "./routes/internal/bot-runtime-statu
 import type { DiscordGuildProvider } from "./discord/types.js";
 import type { BotOnboardingService } from "./services/bot-onboarding-service.js";
 
+import path from "node:path";
 import type { CredentialService } from "./services/credential-service.js";
 import type { FakeDiscordGuildProvider } from "./discord/fake-discord-guild-provider.js";
 import { createTestHarnessRoutes, isTestHarnessEnabled } from "./routes/internal/test-harness.js";
+import { LocalStorageService, type StorageService } from "./services/storage-service.js";
 
 const BETTER_AUTH_MOUNT_PATH = "/api/auth";
 
@@ -33,6 +35,7 @@ export interface CreateAppOptions extends ReadyRouteDeps {
   botOnboardingService?: BotOnboardingService | undefined;
   fakeDiscordGuildProvider?: FakeDiscordGuildProvider | undefined;
   betterAuthSecret?: string | undefined;
+  storageService?: StorageService | undefined;
 }
 
 /**
@@ -75,6 +78,35 @@ export function createApp(options: CreateAppOptions): Hono {
     );
   }
 
+  const storageService =
+    options.storageService ?? new LocalStorageService({ logger: options.logger });
+
+  app.get("/storage/*", async (c) => {
+    const rawPath = c.req.path.replace(/^\/storage\/?/, "");
+    const file = await storageService.readFile(rawPath);
+    if (!file) {
+      return c.json({ error: "NOT_FOUND" }, 404);
+    }
+
+    const ext = path.extname(rawPath).toLowerCase();
+    const mimeTypes: Record<string, string> = {
+      ".png": "image/png",
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".gif": "image/gif",
+      ".webp": "image/webp",
+    };
+    const contentType = mimeTypes[ext] || "application/octet-stream";
+
+    return new Response(new Uint8Array(file), {
+      status: 200,
+      headers: {
+        "Content-Type": contentType,
+        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+      },
+    });
+  });
+
   if (
     options.auth &&
     options.discordGuildProvider &&
@@ -91,6 +123,7 @@ export function createApp(options: CreateAppOptions): Hono {
         webAppOrigin: options.webAppOrigin,
         botOnboardingService: options.botOnboardingService,
         credentialService: options.credentialService,
+        storageService,
       }),
     );
   }

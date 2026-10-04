@@ -448,4 +448,142 @@ export class CredentialService {
       return null;
     }
   }
+
+  /**
+   * Updates bot identity on live Discord API:
+   * 1. If nickname & guildId provided, updates member nickname for that guild.
+   * 2. If avatarDataUri provided, updates global bot avatar (subject to 2/hour Discord cooldown).
+   */
+  public async updateDiscordBotIdentity(
+    botApplicationId: string,
+    options: {
+      guildId?: bigint | undefined;
+      nickname?: string | undefined;
+      avatarDataUri?: string | undefined;
+      bannerDataUri?: string | undefined;
+    },
+  ): Promise<{ ok: true } | { ok: false; error: string; retryAfterSeconds?: number }> {
+    const credRow = await findActiveCredential(this.db, botApplicationId);
+    if (!credRow) {
+      return { ok: false, error: "NO_ACTIVE_CREDENTIAL" };
+    }
+
+    let plaintext: string;
+    try {
+      plaintext = decryptBotCredential(
+        {
+          ciphertext: Buffer.from(credRow.ciphertext),
+          nonce: Buffer.from(credRow.nonce),
+          authTag: Buffer.from(credRow.authTag),
+          keyVersion: credRow.keyVersion,
+        },
+        {
+          botApplicationId: credRow.botApplicationId,
+          credentialId: credRow.id,
+        },
+        this.keys,
+      );
+    } catch {
+      return { ok: false, error: "DECRYPTION_FAILED" };
+    }
+
+    // 1. Update nickname if requested
+    if (options.guildId !== undefined && options.nickname !== undefined) {
+      try {
+        const nickRes = await fetch(
+          `https://discord.com/api/v10/guilds/${options.guildId}/members/@me`,
+          {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bot ${plaintext}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ nick: options.nickname.trim() }),
+          },
+        );
+        if (!nickRes.ok && nickRes.status !== 429) {
+          this.logger.warn("discord.nickname_update_warning", { status: nickRes.status });
+        }
+      } catch (err) {
+        this.logger.warn("discord.nickname_update_failed", { err });
+      }
+    }
+
+    // 2. Update avatar on Discord if requested
+    if (options.avatarDataUri) {
+      try {
+        const avatarRes = await fetch("https://discord.com/api/v10/users/@me", {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bot ${plaintext}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ avatar: options.avatarDataUri }),
+        });
+
+        if (avatarRes.status === 429) {
+          const errData = (await avatarRes.json().catch(() => ({}))) as {
+            retry_after?: number;
+            message?: string;
+          };
+          const retryAfter = Math.ceil(errData.retry_after ?? 900);
+          return {
+            ok: false,
+            error: "DISCORD_COOLDOWN",
+            retryAfterSeconds: retryAfter,
+          };
+        }
+
+        if (!avatarRes.ok) {
+          const errText = await avatarRes.text();
+          this.logger.warn("discord.avatar_update_failed", { status: avatarRes.status, errText });
+          return { ok: false, error: "DISCORD_API_ERROR" };
+        }
+
+        // Invalidate cache so fresh avatar is fetched immediately
+        this.botProfileCache.delete(botApplicationId);
+      } catch (err) {
+        this.logger.warn("discord.avatar_update_network_error", { err });
+        return { ok: false, error: "NETWORK_ERROR" };
+      }
+    }
+
+    // 3. Update banner on Discord if requested
+    if (options.bannerDataUri) {
+      try {
+        const bannerRes = await fetch("https://discord.com/api/v10/users/@me", {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bot ${plaintext}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ banner: options.bannerDataUri }),
+        });
+
+        if (bannerRes.status === 429) {
+          const errData = (await bannerRes.json().catch(() => ({}))) as {
+            retry_after?: number;
+          };
+          const retryAfter = Math.ceil(errData.retry_after ?? 900);
+          return {
+            ok: false,
+            error: "DISCORD_COOLDOWN",
+            retryAfterSeconds: retryAfter,
+          };
+        }
+
+        if (!bannerRes.ok) {
+          const errText = await bannerRes.text();
+          this.logger.warn("discord.banner_update_failed", { status: bannerRes.status, errText });
+        } else {
+          this.botProfileCache.delete(botApplicationId);
+        }
+      } catch (err) {
+        this.logger.warn("discord.banner_update_network_error", { err });
+      }
+    }
+
+    return { ok: true };
+  }
 }
+

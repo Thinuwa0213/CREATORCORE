@@ -161,3 +161,263 @@ export async function cancelPlanAction(tenantId: string): Promise<BillingActionR
 
   return { ok: true, plan: res.data.plan };
 }
+
+export interface BrandingUploadActionResult {
+  ok: boolean;
+  avatarUrl?: string | undefined;
+  bannerUrl?: string | undefined;
+  fileSizeBytes?: number | undefined;
+  usedStorageBytes?: number | undefined;
+  maxStorageBytes?: number | undefined;
+  error?: string | undefined;
+}
+
+export interface BrandingSaveActionResult {
+  ok: boolean;
+  syncedWithDiscord?: boolean | undefined;
+  retryAfterSeconds?: number | undefined;
+  error?: string | undefined;
+}
+
+/**
+ * Server Action to upload custom avatar image to storage.
+ * Supports FormData (avoids React 19 Flight nested array recursion) or legacy parameters.
+ */
+export async function uploadBrandingAvatarAction(
+  tenantIdOrFormData: string | FormData,
+  guildId?: string,
+  dataUriOrFormData?: string | FormData,
+  fileName?: string,
+): Promise<BrandingUploadActionResult> {
+  let tenantId = "";
+  let targetGuildId = "";
+  let bodyToSend: unknown;
+
+  if (tenantIdOrFormData instanceof FormData) {
+    tenantId = (tenantIdOrFormData.get("tenantId") as string) || "";
+    targetGuildId = (tenantIdOrFormData.get("guildId") as string) || "";
+    const file = tenantIdOrFormData.get("avatar");
+    if (file instanceof File) {
+      const cleanFormData = new FormData();
+      cleanFormData.append("avatar", file);
+      bodyToSend = cleanFormData;
+    } else {
+      bodyToSend = tenantIdOrFormData;
+    }
+  } else {
+    tenantId = tenantIdOrFormData;
+    targetGuildId = guildId || "";
+    if (dataUriOrFormData instanceof FormData) {
+      const file = dataUriOrFormData.get("avatar");
+      if (file instanceof File) {
+        const cleanFormData = new FormData();
+        cleanFormData.append("avatar", file);
+        bodyToSend = cleanFormData;
+      } else {
+        bodyToSend = dataUriOrFormData;
+      }
+    } else {
+      bodyToSend = { dataUri: dataUriOrFormData, fileName: fileName || "avatar.png" };
+    }
+  }
+
+  if (!tenantId || !targetGuildId) {
+    return { ok: false, error: "Missing required upload parameters" };
+  }
+
+  const res = await callApiServer<{
+    ok: boolean;
+    avatarUrl: string;
+    fileSizeBytes: number;
+    usedStorageBytes: number;
+    maxStorageBytes: number;
+    message?: string;
+  }>(
+    `/app/tenants/${encodeURIComponent(tenantId)}/guilds/${encodeURIComponent(targetGuildId)}/branding/avatar`,
+    {
+      method: "POST",
+      body: bodyToSend,
+    },
+  );
+
+  if (!res.ok || !res.data) {
+    return { ok: false, error: res.error ?? "Failed to upload avatar" };
+  }
+
+  return {
+    ok: true,
+    avatarUrl: res.data.avatarUrl,
+    fileSizeBytes: res.data.fileSizeBytes,
+    usedStorageBytes: res.data.usedStorageBytes,
+    maxStorageBytes: res.data.maxStorageBytes,
+  };
+}
+
+/**
+ * Server Action to upload custom banner image to storage.
+ * Supports FormData (avoids React 19 Flight nested array recursion) or legacy parameters.
+ */
+export async function uploadBrandingBannerAction(
+  tenantIdOrFormData: string | FormData,
+  guildId?: string,
+  dataUriOrFormData?: string | FormData,
+  fileName?: string,
+): Promise<BrandingUploadActionResult> {
+  let tenantId = "";
+  let targetGuildId = "";
+  let bodyToSend: unknown;
+
+  if (tenantIdOrFormData instanceof FormData) {
+    tenantId = (tenantIdOrFormData.get("tenantId") as string) || "";
+    targetGuildId = (tenantIdOrFormData.get("guildId") as string) || "";
+    const file = tenantIdOrFormData.get("banner");
+    if (file instanceof File) {
+      const cleanFormData = new FormData();
+      cleanFormData.append("banner", file);
+      bodyToSend = cleanFormData;
+    } else {
+      bodyToSend = tenantIdOrFormData;
+    }
+  } else {
+    tenantId = tenantIdOrFormData;
+    targetGuildId = guildId || "";
+    if (dataUriOrFormData instanceof FormData) {
+      const file = dataUriOrFormData.get("banner");
+      if (file instanceof File) {
+        const cleanFormData = new FormData();
+        cleanFormData.append("banner", file);
+        bodyToSend = cleanFormData;
+      } else {
+        bodyToSend = dataUriOrFormData;
+      }
+    } else {
+      bodyToSend = { dataUri: dataUriOrFormData, fileName: fileName || "banner.png" };
+    }
+  }
+
+  if (!tenantId || !targetGuildId) {
+    return { ok: false, error: "Missing required upload parameters" };
+  }
+
+  const res = await callApiServer<{
+    ok: boolean;
+    bannerUrl: string;
+    fileSizeBytes: number;
+    usedStorageBytes: number;
+    maxStorageBytes: number;
+    message?: string;
+  }>(
+    `/app/tenants/${encodeURIComponent(tenantId)}/guilds/${encodeURIComponent(targetGuildId)}/branding/banner`,
+    {
+      method: "POST",
+      body: bodyToSend,
+    },
+  );
+
+  if (!res.ok || !res.data) {
+    return { ok: false, error: res.error ?? "Failed to upload banner" };
+  }
+
+  return {
+    ok: true,
+    bannerUrl: res.data.bannerUrl,
+    fileSizeBytes: res.data.fileSizeBytes,
+    usedStorageBytes: res.data.usedStorageBytes,
+    maxStorageBytes: res.data.maxStorageBytes,
+  };
+}
+
+/**
+ * Server Action to apply branding changes and sync with Discord API.
+ */
+export async function saveBrandingAction(
+  tenantId: string,
+  guildId: string,
+  options: {
+    nickname?: string;
+    syncAvatarToDiscord?: boolean;
+    syncBannerToDiscord?: boolean;
+  },
+): Promise<BrandingSaveActionResult> {
+  if (!tenantId || !guildId) {
+    return { ok: false, error: "Missing tenant or guild ID" };
+  }
+
+  const res = await callApiServer<{
+    ok: boolean;
+    syncedWithDiscord?: boolean;
+    error?: string;
+    retryAfterSeconds?: number;
+  }>(
+    `/app/tenants/${encodeURIComponent(tenantId)}/guilds/${encodeURIComponent(guildId)}/branding/save`,
+    {
+      method: "POST",
+      body: options,
+    },
+  );
+
+  if (!res.ok || !res.data) {
+    return {
+      ok: false,
+      error: res.error ?? "Failed to save branding changes",
+    };
+  }
+
+  return {
+    ok: res.data.ok,
+    syncedWithDiscord: res.data.syncedWithDiscord,
+    retryAfterSeconds: res.data.retryAfterSeconds,
+    error: res.data.error,
+  };
+}
+
+/**
+ * Server Action to remove custom avatar and free up quota.
+ */
+export async function removeBrandingAvatarAction(
+  tenantId: string,
+  guildId: string,
+): Promise<{ ok: boolean; usedStorageBytes?: number; error?: string }> {
+  if (!tenantId || !guildId) {
+    return { ok: false, error: "Missing tenant or guild ID" };
+  }
+
+  const res = await callApiServer<{ ok: boolean; usedStorageBytes: number }>(
+    `/app/tenants/${encodeURIComponent(tenantId)}/guilds/${encodeURIComponent(guildId)}/branding/avatar`,
+    {
+      method: "DELETE",
+    },
+  );
+
+  if (!res.ok || !res.data) {
+    return { ok: false, error: res.error ?? "Failed to remove avatar" };
+  }
+
+  return { ok: true, usedStorageBytes: res.data.usedStorageBytes };
+}
+
+/**
+ * Server Action to remove custom banner and free up quota.
+ */
+export async function removeBrandingBannerAction(
+  tenantId: string,
+  guildId: string,
+): Promise<{ ok: boolean; usedStorageBytes?: number; error?: string }> {
+  if (!tenantId || !guildId) {
+    return { ok: false, error: "Missing tenant or guild ID" };
+  }
+
+  const res = await callApiServer<{ ok: boolean; usedStorageBytes: number }>(
+    `/app/tenants/${encodeURIComponent(tenantId)}/guilds/${encodeURIComponent(guildId)}/branding/banner`,
+    {
+      method: "DELETE",
+    },
+  );
+
+  if (!res.ok || !res.data) {
+    return { ok: false, error: res.error ?? "Failed to remove banner" };
+  }
+
+  return { ok: true, usedStorageBytes: res.data.usedStorageBytes };
+}
+
