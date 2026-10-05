@@ -794,5 +794,123 @@ export function createTenantResourceRoutes(
     return c.json({ ok: true, usedStorageBytes: newUsedBytes });
   });
 
+  /**
+   * Retrieves saved presence and rich activity settings for guild.
+   */
+  route.get("/guilds/:guildId/presence", async (c) => {
+    const userId = c.get("userId");
+    const tenantId = c.req.param("tenantId");
+    if (!tenantId) return c.json({ error: "invalid_request" }, 400);
+    const guildId = parseDiscordSnowflake(c.req.param("guildId"));
+    if (guildId === undefined) return c.json({ error: "INVALID_GUILD_ID" }, 400);
+
+    try {
+      await requireGuildAccess(deps.db, userId, tenantId, guildId);
+    } catch (error) {
+      const response = respondToAuthorizationError(c, error);
+      if (response) return response;
+      throw error;
+    }
+
+    const storage = deps.storageService ?? new LocalStorageService();
+    const configPath = `tenants/${tenantId}/guilds/${guildId}/presence.json`;
+    const buffer = await storage.readFile(configPath);
+
+    if (!buffer) {
+      // First setup: completely empty activities list (no default mock items)
+      return c.json({
+        statusMode: "online",
+        rotationInterval: 60,
+        activities: [],
+      });
+    }
+
+    try {
+      const parsed = JSON.parse(buffer.toString("utf-8"));
+      return c.json({
+        statusMode: parsed.statusMode ?? "online",
+        rotationInterval: parsed.rotationInterval ?? 60,
+        activities: Array.isArray(parsed.activities) ? parsed.activities : [],
+      });
+    } catch {
+      return c.json({
+        statusMode: "online",
+        rotationInterval: 60,
+        activities: [],
+      });
+    }
+  });
+
+  /**
+   * Saves presence and rich activity settings for guild.
+   */
+  route.post("/guilds/:guildId/presence", async (c) => {
+    const userId = c.get("userId");
+    const tenantId = c.req.param("tenantId");
+    if (!tenantId) return c.json({ error: "invalid_request" }, 400);
+    const guildId = parseDiscordSnowflake(c.req.param("guildId"));
+    if (guildId === undefined) return c.json({ error: "INVALID_GUILD_ID" }, 400);
+
+    try {
+      await requireGuildAccess(deps.db, userId, tenantId, guildId);
+    } catch (error) {
+      const response = respondToAuthorizationError(c, error);
+      if (response) return response;
+      throw error;
+    }
+
+    const body = (await c.req.json().catch(() => ({}))) as {
+      statusMode?: string;
+      rotationInterval?: number;
+      activities?: Array<{
+        id: string;
+        type: string;
+        text: string;
+        streamUrl?: string;
+      }>;
+    };
+
+    // Plan quota enforcement
+    const sub = await findSubscriptionByTenant(deps.db, tenantId);
+    const plan = sub?.plan ?? "FREE";
+    const maxAllowed = plan === "ENTERPRISE" ? 10 : plan === "PRO" ? 5 : 2;
+
+    const rawActivities = Array.isArray(body.activities) ? body.activities : [];
+    if (rawActivities.length > maxAllowed) {
+      return c.json({ error: `Exceeded maximum ${maxAllowed} status slots for ${plan} plan` }, 400);
+    }
+
+    const statusMode = body.statusMode === "idle" || body.statusMode === "dnd" ? body.statusMode : "online";
+    const rotationInterval =
+      typeof body.rotationInterval === "number" && body.rotationInterval >= 10 ? body.rotationInterval : 60;
+
+    const validActivities = rawActivities.slice(0, maxAllowed).map((act, index) => ({
+      id: act.id || `act-${Date.now()}-${index}`,
+      type: ["WATCHING", "PLAYING", "LISTENING", "STREAMING", "COMPETING"].includes(act.type)
+        ? act.type
+        : "PLAYING",
+      text: typeof act.text === "string" ? act.text.slice(0, 128) : "",
+      ...(act.streamUrl ? { streamUrl: String(act.streamUrl).slice(0, 256) } : {}),
+    }));
+
+    const config = {
+      statusMode,
+      rotationInterval,
+      activities: validActivities,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const storage = deps.storageService ?? new LocalStorageService();
+    const configPath = `tenants/${tenantId}/guilds/${guildId}/presence.json`;
+    await storage.saveFile(configPath, Buffer.from(JSON.stringify(config, null, 2), "utf-8"));
+
+    return c.json({
+      ok: true,
+      statusMode: config.statusMode,
+      rotationInterval: config.rotationInterval,
+      activities: config.activities,
+    });
+  });
+
   return route;
 }

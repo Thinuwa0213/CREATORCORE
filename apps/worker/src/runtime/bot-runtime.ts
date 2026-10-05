@@ -2,6 +2,7 @@ import type { ChatInputCommandInteraction } from "discord.js";
 import type { Logger } from "@creatorcore/logger";
 import type { IDiscordClient } from "./discord-client.js";
 import { type CommandRegistry, createDefaultCommandRegistry } from "../commands/index.js";
+import { PresenceManager } from "./presence-manager.js";
 
 export interface BotRuntimeOptions {
   botApplicationId: string;
@@ -38,6 +39,7 @@ export class BotRuntime {
   private readonly onFatalError?: ((category: string) => void) | undefined;
   private interactionListener?: ((...args: unknown[]) => void) | undefined;
   private invalidatedListener?: (() => void) | undefined;
+  private presenceManager?: PresenceManager | undefined;
   private connected = false;
 
   constructor(options: BotRuntimeOptions) {
@@ -138,6 +140,9 @@ export class BotRuntime {
         };
         client.on("invalidated", this.invalidatedListener);
 
+        this.presenceManager = new PresenceManager(client, this.logger);
+        void this.presenceManager.start();
+
         this.logger.info("bot runtime connected and ready", {
           botApplicationId: this.botApplicationId,
           credentialId: this.credentialId,
@@ -193,6 +198,10 @@ export class BotRuntime {
    */
   public async stop(): Promise<void> {
     this.connected = false;
+    if (this.presenceManager) {
+      this.presenceManager.stop();
+      this.presenceManager = undefined;
+    }
     if (this.client) {
       if (this.interactionListener) {
         this.client.removeListener("interactionCreate", this.interactionListener);

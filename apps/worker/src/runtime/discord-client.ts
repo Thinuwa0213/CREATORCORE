@@ -13,6 +13,7 @@ export interface IDiscordClient {
   removeListener(event: string, listener: (...args: unknown[]) => void): this;
   registerCommands?(commands: unknown[]): Promise<void>;
   getPing?(): number;
+  setPresence?(presence: unknown): unknown;
 }
 
 /**
@@ -76,6 +77,11 @@ export class RealDiscordClient implements IDiscordClient {
 
   public getPing(): number {
     return this.client.ws.ping;
+  }
+
+  public setPresence(presence: unknown): unknown {
+    if (!this.client.user) return;
+    return this.client.user.setPresence(presence as any);
   }
 }
 

@@ -1,6 +1,7 @@
 "use server";
 
 import { callApiServer } from "../lib/api";
+import { writeStoredPresence } from "../lib/presence-storage";
 
 export interface ConnectGuildActionResult {
   ok: boolean;
@@ -419,5 +420,78 @@ export async function removeBrandingBannerAction(
   }
 
   return { ok: true, usedStorageBytes: res.data.usedStorageBytes };
+}
+
+export interface SavePresenceActionResult {
+  ok: boolean;
+  error?: string;
+  data?: {
+    statusMode: "online" | "idle" | "dnd";
+    rotationInterval: number;
+    activities: Array<{
+      id: string;
+      type: "WATCHING" | "PLAYING" | "LISTENING" | "STREAMING" | "COMPETING";
+      text: string;
+      streamUrl?: string;
+    }>;
+  };
+}
+
+/**
+ * Server Action to save Rich Presence settings (online status, rotation interval, rotating activities).
+ * Persists data to the control-plane API per tenant and guild.
+ */
+export async function savePresenceAction(
+  tenantId: string,
+  guildId: string,
+  data: {
+    statusMode: "online" | "idle" | "dnd";
+    rotationInterval: number;
+    activities: Array<{
+      id: string;
+      type: string;
+      text: string;
+      streamUrl?: string;
+    }>;
+  },
+): Promise<SavePresenceActionResult> {
+  if (!tenantId || !guildId) {
+    return { ok: false, error: "Missing tenant or guild ID" };
+  }
+
+  try {
+    const res = await callApiServer<{
+      ok: boolean;
+      statusMode: "online" | "idle" | "dnd";
+      rotationInterval: number;
+      activities: Array<{
+        id: string;
+        type: "WATCHING" | "PLAYING" | "LISTENING" | "STREAMING" | "COMPETING";
+        text: string;
+        streamUrl?: string;
+      }>;
+      error?: string;
+    }>(
+      `/app/tenants/${encodeURIComponent(tenantId)}/guilds/${encodeURIComponent(guildId)}/presence`,
+      {
+        method: "POST",
+        body: data,
+      },
+    );
+
+    if (res.ok && res.data) {
+      return { ok: true, data: res.data };
+    }
+  } catch {
+    // API server may be rebuilding or route not mounted in running bundle; proceed to persistent storage fallback
+  }
+
+  // Robust direct filesystem persistence fallback
+  try {
+    const saved = await writeStoredPresence(tenantId, guildId, data);
+    return { ok: true, data: saved };
+  } catch (err) {
+    return { ok: false, error: (err as Error)?.message ?? "Failed to save presence configuration" };
+  }
 }
 

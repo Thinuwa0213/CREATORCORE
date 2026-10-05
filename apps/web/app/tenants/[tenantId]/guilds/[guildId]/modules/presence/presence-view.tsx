@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Save,
   CheckCircle2,
+  AlertCircle,
   Bot,
   Activity,
   Plus,
@@ -24,6 +25,7 @@ import {
   Tv,
   Trophy,
 } from "lucide-react";
+import { savePresenceAction } from "@/app/actions";
 
 export type ActivityType = "WATCHING" | "PLAYING" | "LISTENING" | "STREAMING" | "COMPETING";
 
@@ -39,13 +41,19 @@ interface PresenceViewProps {
   guildId: string;
   currentPlan: "FREE" | "PRO" | "ENTERPRISE";
   botName?: string;
+  initialActivities?: ActivityItem[];
+  initialStatusMode?: "online" | "idle" | "dnd";
+  initialRotationInterval?: number;
 }
 
 export function PresenceView({
   tenantId,
-  guildId: _guildId,
+  guildId,
   currentPlan,
   botName = "CreatorBot",
+  initialActivities = [],
+  initialStatusMode = "online",
+  initialRotationInterval = 60,
 }: PresenceViewProps) {
   // Plan limits: Free = 2, Pro = 5, Enterprise = 10
   const maxActivitiesMap: Record<"FREE" | "PRO" | "ENTERPRISE", number> = {
@@ -55,26 +63,29 @@ export function PresenceView({
   };
   const maxAllowed = maxActivitiesMap[currentPlan];
 
-  // Activities list
-  const [activities, setActivities] = useState<ActivityItem[]>([
-    {
-      id: "act-1",
-      type: "WATCHING",
-      text: "14,200+ Members • /help",
-    },
-    {
-      id: "act-2",
-      type: "PLAYING",
-      text: "Serving Discord Communities",
-    },
-  ]);
+  // Activities list - starts empty by default on fresh setup, or with saved items
+  const [activities, setActivities] = useState<ActivityItem[]>(initialActivities);
 
   // Global presence state
-  const [statusMode, setStatusMode] = useState<"online" | "idle" | "dnd">("online");
-  const [rotationInterval, setRotationInterval] = useState<number>(60);
+  const [statusMode, setStatusMode] = useState<"online" | "idle" | "dnd">(initialStatusMode);
+  const [rotationInterval, setRotationInterval] = useState<number>(initialRotationInterval);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
+
+  // Sync state if initial props change from server
+  useEffect(() => {
+    setActivities(initialActivities);
+  }, [initialActivities]);
+
+  useEffect(() => {
+    setStatusMode(initialStatusMode);
+  }, [initialStatusMode]);
+
+  useEffect(() => {
+    setRotationInterval(initialRotationInterval);
+  }, [initialRotationInterval]);
 
   // Live cycling preview index in Discord Mini-Profile card
   const [activePreviewIndex, setActivePreviewIndex] = useState(0);
@@ -117,8 +128,11 @@ export function PresenceView({
   };
 
   const handleRemoveActivity = (id: string) => {
-    if (activities.length <= 1) return; // Keep at least one
-    setActivities(activities.filter((item) => item.id !== id));
+    setActivities((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleClearAllActivities = () => {
+    setActivities([]);
   };
 
   const handleUpdateActivity = (id: string, updates: Partial<ActivityItem>) => {
@@ -127,14 +141,26 @@ export function PresenceView({
     );
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsPending(true);
-    setTimeout(() => {
-      setIsPending(false);
-      setSaved(true);
-      setCooldownSeconds(60); // 60s cooldown to safeguard Discord Gateway rate-limit
-      setTimeout(() => setSaved(false), 4000);
-    }, 900);
+    setSaveError(null);
+
+    const result = await savePresenceAction(tenantId, guildId, {
+      statusMode,
+      rotationInterval,
+      activities,
+    });
+
+    setIsPending(false);
+
+    if (!result.ok) {
+      setSaveError(result.error ?? "Failed to save presence settings");
+      return;
+    }
+
+    setSaved(true);
+    setCooldownSeconds(10); // 10s cooldown
+    setTimeout(() => setSaved(false), 4000);
   };
 
   const getActivityIcon = (type: ActivityType) => {
@@ -152,11 +178,8 @@ export function PresenceView({
     }
   };
 
-  const currentPreviewActivity: ActivityItem = activities[activePreviewIndex] ?? activities[0] ?? {
-    id: "fallback",
-    type: "WATCHING",
-    text: "Serving Discord Communities",
-  };
+  const currentPreviewActivity: ActivityItem | null =
+    activities.length > 0 ? (activities[activePreviewIndex] ?? activities[0] ?? null) : null;
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -207,7 +230,18 @@ export function PresenceView({
       {saved && (
         <div className="flex items-center gap-2 p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-medium">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
-          <span>Discord Gateway presence successfully updated and rotation cycle deployed!</span>
+          <span>
+            {activities.length === 0
+              ? "Discord Gateway presence updated: Bot online status saved with no activity text."
+              : "Discord Gateway presence successfully updated and rotation cycle deployed!"}
+          </span>
+        </div>
+      )}
+
+      {saveError && (
+        <div className="flex items-center gap-2 p-3.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs font-medium">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{saveError}</span>
         </div>
       )}
 
@@ -288,11 +322,19 @@ export function PresenceView({
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Rotation Speed</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold">Rotation Speed</Label>
+                    {activities.length <= 1 && (
+                      <span className="text-[10px] text-muted-foreground">
+                        (Needs 2+ slots)
+                      </span>
+                    )}
+                  </div>
                   <select
                     value={rotationInterval}
                     onChange={(e) => setRotationInterval(Number(e.target.value))}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    disabled={activities.length <= 1}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value={30}>Every 30 seconds</option>
                     <option value={60}>Every 60 seconds (Recommended)</option>
@@ -316,113 +358,155 @@ export function PresenceView({
                 </p>
               </div>
 
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleAddActivity}
-                disabled={activities.length >= maxAllowed}
-                className="gap-1.5 text-xs h-8"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>Add Status ({activities.length}/{maxAllowed})</span>
-              </Button>
+              <div className="flex items-center gap-2">
+                {activities.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearAllActivities}
+                    className="text-xs h-8 text-muted-foreground hover:text-destructive gap-1 px-2"
+                    title="Remove all status slots"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    <span>Clear All</span>
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddActivity}
+                  disabled={activities.length >= maxAllowed}
+                  className="gap-1.5 text-xs h-8"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Add Status ({activities.length}/{maxAllowed})</span>
+                </Button>
+              </div>
             </div>
 
-            {/* List */}
+            {/* List or Empty State */}
             <div className="space-y-3">
-              {activities.map((activity, index) => (
-                <Card
-                  key={activity.id}
-                  className={`border-border transition-all ${
-                    activePreviewIndex === index ? "ring-1 ring-primary/40 bg-card" : "bg-card/60"
-                  }`}
-                >
-                  <CardContent className="p-3.5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground font-mono">
-                          {index + 1}
-                        </span>
-                        <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                          {getActivityIcon(activity.type)}
-                          <span>Status Slot {index + 1}</span>
-                        </span>
-                        {activePreviewIndex === index && (
-                          <Badge variant="outline" className="text-[9px] px-1 py-0 border-emerald-500/30 text-emerald-500 bg-emerald-500/10">
-                            Active Preview
-                          </Badge>
-                        )}
-                      </div>
+              {activities.length === 0 ? (
+                <Card className="border-border border-dashed bg-card/40">
+                  <CardContent className="p-8 flex flex-col items-center justify-center text-center space-y-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                      <Activity className="h-5 w-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-foreground">
+                        No Rotating Activities Configured
+                      </p>
+                      <p className="text-[11px] text-muted-foreground max-w-sm">
+                        The bot will appear on Discord with only its online status dot and no activity text underneath.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddActivity}
+                      className="gap-1.5 text-xs h-8"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>Add First Status (0/{maxAllowed})</span>
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                activities.map((activity, index) => (
+                  <Card
+                    key={activity.id}
+                    className={`border-border transition-all ${
+                      activePreviewIndex === index ? "ring-1 ring-primary/40 bg-card" : "bg-card/60"
+                    }`}
+                  >
+                    <CardContent className="p-3.5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground font-mono">
+                            {index + 1}
+                          </span>
+                          <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                            {getActivityIcon(activity.type)}
+                            <span>Status Slot {index + 1}</span>
+                          </span>
+                          {activePreviewIndex === index && (
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 border-emerald-500/30 text-emerald-500 bg-emerald-500/10">
+                              Active Preview
+                            </Badge>
+                          )}
+                        </div>
 
-                      {activities.length > 1 && (
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
                           onClick={() => handleRemoveActivity(activity.id)}
                           className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                          title="Remove status slot"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
+                        <div className="sm:col-span-4 space-y-1">
+                          <Label className="text-[11px] font-medium text-muted-foreground">
+                            Activity Type
+                          </Label>
+                          <select
+                            value={activity.type}
+                            onChange={(e) =>
+                              handleUpdateActivity(activity.id, {
+                                type: e.target.value as ActivityType,
+                              })
+                            }
+                            className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          >
+                            <option value="WATCHING">Watching</option>
+                            <option value="PLAYING">Playing</option>
+                            <option value="LISTENING">Listening to</option>
+                            <option value="STREAMING">Streaming</option>
+                            <option value="COMPETING">Competing in</option>
+                          </select>
+                        </div>
+
+                        <div className="sm:col-span-8 space-y-1">
+                          <Label className="text-[11px] font-medium text-muted-foreground">
+                            Status Message Text
+                          </Label>
+                          <Input
+                            value={activity.text}
+                            onChange={(e) =>
+                              handleUpdateActivity(activity.id, { text: e.target.value })
+                            }
+                            placeholder="e.g. 14,000+ members • /help"
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      {activity.type === "STREAMING" && (
+                        <div className="space-y-1 pt-1 border-t border-border/50">
+                          <Label className="text-[11px] font-medium text-muted-foreground">
+                            Twitch or YouTube Stream URL
+                          </Label>
+                          <Input
+                            value={activity.streamUrl || ""}
+                            onChange={(e) =>
+                              handleUpdateActivity(activity.id, { streamUrl: e.target.value })
+                            }
+                            placeholder="https://twitch.tv/..."
+                            className="h-8 text-xs font-mono"
+                          />
+                        </div>
                       )}
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
-                      <div className="sm:col-span-4 space-y-1">
-                        <Label className="text-[11px] font-medium text-muted-foreground">
-                          Activity Type
-                        </Label>
-                        <select
-                          value={activity.type}
-                          onChange={(e) =>
-                            handleUpdateActivity(activity.id, {
-                              type: e.target.value as ActivityType,
-                            })
-                          }
-                          className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        >
-                          <option value="WATCHING">Watching</option>
-                          <option value="PLAYING">Playing</option>
-                          <option value="LISTENING">Listening to</option>
-                          <option value="STREAMING">Streaming</option>
-                          <option value="COMPETING">Competing in</option>
-                        </select>
-                      </div>
-
-                      <div className="sm:col-span-8 space-y-1">
-                        <Label className="text-[11px] font-medium text-muted-foreground">
-                          Status Message Text
-                        </Label>
-                        <Input
-                          value={activity.text}
-                          onChange={(e) =>
-                            handleUpdateActivity(activity.id, { text: e.target.value })
-                          }
-                          placeholder="e.g. 14,000+ members • /help"
-                          className="h-8 text-xs"
-                        />
-                      </div>
-                    </div>
-
-                    {activity.type === "STREAMING" && (
-                      <div className="space-y-1 pt-1 border-t border-border/50">
-                        <Label className="text-[11px] font-medium text-muted-foreground">
-                          Twitch or YouTube Stream URL
-                        </Label>
-                        <Input
-                          value={activity.streamUrl || ""}
-                          onChange={(e) =>
-                            handleUpdateActivity(activity.id, { streamUrl: e.target.value })
-                          }
-                          placeholder="https://twitch.tv/..."
-                          className="h-8 text-xs font-mono"
-                        />
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
 
             {activities.length >= maxAllowed && currentPlan !== "ENTERPRISE" && (
@@ -449,22 +533,24 @@ export function PresenceView({
                   Discord Mini-Profile Preview
                 </CardTitle>
                 <div className="flex items-center gap-1.5">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 text-muted-foreground"
-                    onClick={() => setIsPreviewPlaying(!isPreviewPlaying)}
-                    title={isPreviewPlaying ? "Pause cycle preview" : "Play cycle preview"}
-                  >
-                    {isPreviewPlaying ? (
-                      <Pause className="h-3 w-3" />
-                    ) : (
-                      <Play className="h-3 w-3" />
-                    )}
-                  </Button>
+                  {activities.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-muted-foreground"
+                      onClick={() => setIsPreviewPlaying(!isPreviewPlaying)}
+                      title={isPreviewPlaying ? "Pause cycle preview" : "Play cycle preview"}
+                    >
+                      {isPreviewPlaying ? (
+                        <Pause className="h-3 w-3" />
+                      ) : (
+                        <Play className="h-3 w-3" />
+                      )}
+                    </Button>
+                  )}
                   <Badge variant="outline" className="text-[9px] font-mono">
-                    {activePreviewIndex + 1} / {activities.length}
+                    {activities.length === 0 ? "0 / 0" : `${activePreviewIndex + 1} / ${activities.length}`}
                   </Badge>
                 </div>
               </div>
@@ -519,33 +605,43 @@ export function PresenceView({
                       <span className="text-[10px] font-bold text-[#b5bac1] uppercase tracking-wider block">
                         Activity
                       </span>
-                      <span className="text-[10px] text-[#949ba4] font-mono">
-                        rotates every {rotationInterval}s
-                      </span>
-                    </div>
-
-                    <div className="rounded bg-[#2b2d31] p-2.5 transition-all duration-300">
-                      <p className="text-xs text-[#dbdee1] flex items-center gap-1.5 flex-wrap">
-                        <span className="capitalize font-medium text-white flex items-center gap-1">
-                          {getActivityIcon(currentPreviewActivity.type)}
-                          <span>
-                            {currentPreviewActivity.type === "LISTENING"
-                              ? "Listening to"
-                              : currentPreviewActivity.type === "COMPETING"
-                                ? "Competing in"
-                                : currentPreviewActivity.type.toLowerCase()}
-                          </span>
+                      {activities.length > 1 && (
+                        <span className="text-[10px] text-[#949ba4] font-mono">
+                          rotates every {rotationInterval}s
                         </span>
-                        <span className="font-semibold text-white">
-                          {currentPreviewActivity.text || "..."}
-                        </span>
-                      </p>
-                      {currentPreviewActivity.type === "STREAMING" && currentPreviewActivity.streamUrl && (
-                        <p className="text-[10px] text-[#949ba4] truncate mt-1 font-mono">
-                          {currentPreviewActivity.streamUrl}
-                        </p>
                       )}
                     </div>
+
+                    {currentPreviewActivity ? (
+                      <div className="rounded bg-[#2b2d31] p-2.5 transition-all duration-300">
+                        <p className="text-xs text-[#dbdee1] flex items-center gap-1.5 flex-wrap">
+                          <span className="capitalize font-medium text-white flex items-center gap-1">
+                            {getActivityIcon(currentPreviewActivity.type)}
+                            <span>
+                              {currentPreviewActivity.type === "LISTENING"
+                                ? "Listening to"
+                                : currentPreviewActivity.type === "COMPETING"
+                                  ? "Competing in"
+                                  : currentPreviewActivity.type.toLowerCase()}
+                            </span>
+                          </span>
+                          <span className="font-semibold text-white">
+                            {currentPreviewActivity.text || "..."}
+                          </span>
+                        </p>
+                        {currentPreviewActivity.type === "STREAMING" && currentPreviewActivity.streamUrl && (
+                          <p className="text-[10px] text-[#949ba4] truncate mt-1 font-mono">
+                            {currentPreviewActivity.streamUrl}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="rounded border border-dashed border-[#2b2d31] p-2.5 text-center">
+                        <p className="text-[11px] text-[#949ba4] italic">
+                          No custom activity set (Bot displays clean profile)
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -568,9 +664,15 @@ export function PresenceView({
                 </div>
               )}
 
-              <p className="text-[11px] text-muted-foreground text-center mt-2">
-                Simulating live rotation on Discord. Click dots to preview specific status.
-              </p>
+              {activities.length > 0 ? (
+                <p className="text-[11px] text-muted-foreground text-center mt-2">
+                  Simulating live rotation on Discord. Click dots to preview specific status.
+                </p>
+              ) : (
+                <p className="text-[11px] text-muted-foreground text-center mt-2">
+                  Clean bot profile. No activity status will be broadcast on Discord Gateway.
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
