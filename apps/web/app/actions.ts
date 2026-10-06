@@ -2,6 +2,12 @@
 
 import { callApiServer } from "../lib/api";
 import { writeStoredPresence } from "../lib/presence-storage";
+import { writeStoredWelcome } from "../lib/welcome-storage";
+import type {
+  WelcomeConfig,
+  LiveDiscordChannel,
+  LiveDiscordRole,
+} from "./tenants/[tenantId]/guilds/[guildId]/modules/welcome/welcome-types";
 
 export interface ConnectGuildActionResult {
   ok: boolean;
@@ -428,12 +434,12 @@ export interface SavePresenceActionResult {
   data?: {
     statusMode: "online" | "idle" | "dnd";
     rotationInterval: number;
-    activities: Array<{
+    activities: {
       id: string;
       type: "WATCHING" | "PLAYING" | "LISTENING" | "STREAMING" | "COMPETING";
       text: string;
       streamUrl?: string;
-    }>;
+    }[];
   };
 }
 
@@ -447,12 +453,12 @@ export async function savePresenceAction(
   data: {
     statusMode: "online" | "idle" | "dnd";
     rotationInterval: number;
-    activities: Array<{
+    activities: {
       id: string;
       type: string;
       text: string;
       streamUrl?: string;
-    }>;
+    }[];
   },
 ): Promise<SavePresenceActionResult> {
   if (!tenantId || !guildId) {
@@ -464,12 +470,12 @@ export async function savePresenceAction(
       ok: boolean;
       statusMode: "online" | "idle" | "dnd";
       rotationInterval: number;
-      activities: Array<{
+      activities: {
         id: string;
         type: "WATCHING" | "PLAYING" | "LISTENING" | "STREAMING" | "COMPETING";
         text: string;
         streamUrl?: string;
-      }>;
+      }[];
       error?: string;
     }>(
       `/app/tenants/${encodeURIComponent(tenantId)}/guilds/${encodeURIComponent(guildId)}/presence`,
@@ -493,5 +499,90 @@ export async function savePresenceAction(
   } catch (err) {
     return { ok: false, error: (err as Error)?.message ?? "Failed to save presence configuration" };
   }
+}
+
+export interface SaveWelcomeActionResult {
+  ok: boolean;
+  error?: string;
+  data?: WelcomeConfig;
+}
+
+/**
+ * Server Action to save Welcome Module settings (message template, channel, auto-role, banner config).
+ * Persists data to the control-plane API or filesystem storage fallback.
+ */
+export async function saveWelcomeAction(
+  tenantId: string,
+  guildId: string,
+  data: WelcomeConfig,
+): Promise<SaveWelcomeActionResult> {
+  if (!tenantId || !guildId) {
+    return { ok: false, error: "Missing tenant or guild ID" };
+  }
+
+  try {
+    const res = await callApiServer<{
+      ok: boolean;
+      data: WelcomeConfig;
+      error?: string;
+    }>(
+      `/app/tenants/${encodeURIComponent(tenantId)}/guilds/${encodeURIComponent(guildId)}/welcome`,
+      {
+        method: "POST",
+        body: data,
+      },
+    );
+
+    if (res.ok && res.data) {
+      return { ok: true, data: res.data.data };
+    }
+  } catch {
+    // API server may not have this route yet; fallback to direct storage
+  }
+
+  try {
+    const saved = await writeStoredWelcome(tenantId, guildId, data);
+    return { ok: true, data: saved };
+  } catch (err) {
+    return { ok: false, error: (err as Error)?.message ?? "Failed to save welcome configuration" };
+  }
+}
+
+export interface DiscordResourcesActionResult {
+  ok: boolean;
+  error?: string;
+  data?: {
+    guildName: string;
+    channels: LiveDiscordChannel[];
+    roles: LiveDiscordRole[];
+  };
+}
+
+/**
+ * Server Action to fetch live Discord channels and roles for a connected guild.
+ */
+export async function refreshGuildDiscordResourcesAction(
+  tenantId: string,
+  guildId: string,
+): Promise<DiscordResourcesActionResult> {
+  if (!tenantId || !guildId) {
+    return { ok: false, error: "Missing tenant or guild ID" };
+  }
+
+  const res = await callApiServer<{
+    ok: boolean;
+    data: {
+      guildName: string;
+      channels: LiveDiscordChannel[];
+      roles: LiveDiscordRole[];
+    };
+    error?: string;
+  }>(`/app/tenants/${encodeURIComponent(tenantId)}/guilds/${encodeURIComponent(guildId)}/discord-resources`);
+
+  if (res.ok && res.data?.data) {
+    return { ok: true, data: res.data.data };
+  }
+
+  return { ok: false, error: res.error || "Failed to fetch live Discord resources" };
 }
 

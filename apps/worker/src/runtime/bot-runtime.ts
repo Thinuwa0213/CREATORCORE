@@ -3,6 +3,7 @@ import type { Logger } from "@creatorcore/logger";
 import type { IDiscordClient } from "./discord-client.js";
 import { type CommandRegistry, createDefaultCommandRegistry } from "../commands/index.js";
 import { PresenceManager } from "./presence-manager.js";
+import { WelcomeManager } from "./welcome-manager.js";
 
 export interface BotRuntimeOptions {
   botApplicationId: string;
@@ -40,6 +41,7 @@ export class BotRuntime {
   private interactionListener?: ((...args: unknown[]) => void) | undefined;
   private invalidatedListener?: (() => void) | undefined;
   private presenceManager?: PresenceManager | undefined;
+  private welcomeManager?: WelcomeManager | undefined;
   private connected = false;
 
   constructor(options: BotRuntimeOptions) {
@@ -143,6 +145,9 @@ export class BotRuntime {
         this.presenceManager = new PresenceManager(client, this.logger);
         void this.presenceManager.start();
 
+        this.welcomeManager = new WelcomeManager(client, this.logger);
+        void this.welcomeManager.start();
+
         this.logger.info("bot runtime connected and ready", {
           botApplicationId: this.botApplicationId,
           credentialId: this.credentialId,
@@ -201,6 +206,10 @@ export class BotRuntime {
     if (this.presenceManager) {
       this.presenceManager.stop();
       this.presenceManager = undefined;
+    }
+    if (this.welcomeManager) {
+      this.welcomeManager.stop();
+      this.welcomeManager = undefined;
     }
     if (this.client) {
       if (this.interactionListener) {

@@ -912,5 +912,59 @@ export function createTenantResourceRoutes(
     });
   });
 
+  /**
+   * Fetches real live Discord resources (channels, roles, server name) for the guild via the assigned bot.
+   */
+  route.get("/guilds/:guildId/discord-resources", async (c) => {
+    const userId = c.get("userId");
+    const tenantId = c.req.param("tenantId");
+    if (!tenantId) return c.json({ error: "invalid_request" }, 400);
+    const guildId = parseDiscordSnowflake(c.req.param("guildId"));
+    if (guildId === undefined) return c.json({ error: "INVALID_GUILD_ID" }, 400);
+
+    try {
+      await requireGuildAccess(deps.db, userId, tenantId, guildId);
+    } catch (error) {
+      const response = respondToAuthorizationError(c, error);
+      if (response) return response;
+      throw error;
+    }
+
+    const resolved = await resolveBotApplicationForGuild(deps.db, tenantId, guildId);
+    if (!resolved?.botApplicationId) {
+      return c.json({
+        ok: false,
+        error: "BOT_NOT_CONFIGURED",
+        data: {
+          guildName: "Discord Server",
+          channels: [],
+          roles: [],
+        },
+      });
+    }
+
+    const res = await deps.credentialService.fetchGuildDiscordResources(
+      resolved.botApplicationId,
+      guildId,
+    );
+
+    if (!res.ok) {
+      return c.json({
+        ok: false,
+        error: res.error,
+        data: {
+          guildName: "Discord Server",
+          channels: [],
+          roles: [],
+        },
+      });
+    }
+
+    return c.json({
+      ok: true,
+      data: res.data,
+    });
+  });
+
   return route;
 }

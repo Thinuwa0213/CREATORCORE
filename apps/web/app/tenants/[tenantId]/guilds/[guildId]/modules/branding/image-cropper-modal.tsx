@@ -283,7 +283,7 @@ export function ImageCropperModal({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onCancel()}>
-      <DialogContent className="sm:max-w-[540px] p-0 overflow-hidden bg-card border-border/80 text-foreground shadow-2xl rounded-2xl">
+      <DialogContent className="sm:max-w-[540px] p-0 overflow-hidden bg-card border-border/80 text-foreground shadow-2xl rounded-2xl z-[60]">
         <DialogHeader className="p-5 pb-4 border-b border-border/70 bg-card/60 backdrop-blur-xs">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shrink-0">
@@ -295,7 +295,11 @@ export function ImageCropperModal({
                   {title}
                 </h2>
                 <Badge variant="outline" className="text-[10px] font-mono font-medium border-border/80">
-                  {aspectRatio === 1 ? "1:1 Square" : "17:6 Banner"}
+                  {aspectRatio === 1
+                    ? "1:1 Square"
+                    : Math.abs(aspectRatio - 700 / 260) < 0.1
+                      ? "2.7:1 Banner"
+                      : "17:6 Banner"}
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">

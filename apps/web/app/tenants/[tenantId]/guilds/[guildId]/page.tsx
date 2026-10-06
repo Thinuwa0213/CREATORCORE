@@ -12,6 +12,12 @@ import {
   CheckCircle2,
   KeyRound,
   AlertTriangle,
+  ShieldCheck,
+  ExternalLink,
+  Users,
+  MessageSquareText,
+  Radio,
+  Lock,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -90,6 +96,7 @@ export default async function GuildOverviewPage({ params }: PageProps) {
   };
 
   const badgeVariant = getBadgeVariant(status);
+  const isIntentsActive = status === "ONLINE" || status === "ACTIVE_ASSIGNMENT";
 
   return (
     <div className="space-y-6">
@@ -232,6 +239,159 @@ export default async function GuildOverviewPage({ params }: PageProps) {
                   </a>
                 </Button>
               </div>
+            </div>
+          )}
+        </section>
+
+        <Separator className="my-6" />
+
+        {/* Privileged Gateway Intents Status */}
+        <section className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              <span>Privileged Gateway Intents</span>
+            </div>
+            <a
+              href={
+                botApplicationId
+                  ? `https://discord.com/developers/applications/${botApplicationId}/bot`
+                  : "https://discord.com/developers/applications"
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors font-medium"
+            >
+              <span>Discord Developer Portal</span>
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Discord Gateway requires these three privileged intents to be turned <strong className="text-foreground">ON</strong> in the Discord Developer Portal for CreatorCore modules to receive live events.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* Server Members Intent */}
+            <div className="rounded-xl border border-border/80 bg-background/50 p-4 space-y-2 relative overflow-hidden group hover:border-border transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500">
+                    <Users className="h-4 w-4" />
+                  </div>
+                  <span className="text-xs font-semibold text-foreground">Server Members</span>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={`text-[10px] font-mono flex items-center gap-1 ${
+                    isIntentsActive
+                      ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/10"
+                      : "border-amber-500/30 text-amber-500 bg-amber-500/10"
+                  }`}
+                >
+                  {isIntentsActive ? (
+                    <>
+                      <CheckCircle2 className="h-3 w-3" />
+                      <span>ACTIVE</span>
+                    </>
+                  ) : (
+                    <span>REQUIRED</span>
+                  )}
+                </Badge>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Required for Welcome messages, custom canvas cards, auto-roles, and member join/leave tracking.
+              </p>
+            </div>
+
+            {/* Message Content Intent */}
+            <div className="rounded-xl border border-border/80 bg-background/50 p-4 space-y-2 relative overflow-hidden group hover:border-border transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-500">
+                    <MessageSquareText className="h-4 w-4" />
+                  </div>
+                  <span className="text-xs font-semibold text-foreground">Message Content</span>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={`text-[10px] font-mono flex items-center gap-1 ${
+                    isIntentsActive
+                      ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/10"
+                      : "border-amber-500/30 text-amber-500 bg-amber-500/10"
+                  }`}
+                >
+                  {isIntentsActive ? (
+                    <>
+                      <CheckCircle2 className="h-3 w-3" />
+                      <span>ACTIVE</span>
+                    </>
+                  ) : (
+                    <span>REQUIRED</span>
+                  )}
+                </Badge>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Required for auto-moderation bad word filters, custom message triggers, and bot prefix commands.
+              </p>
+            </div>
+
+            {/* Presence Intent */}
+            <div className="rounded-xl border border-border/80 bg-background/50 p-4 space-y-2 relative overflow-hidden group hover:border-border transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-500">
+                    <Radio className="h-4 w-4" />
+                  </div>
+                  <span className="text-xs font-semibold text-foreground">Presence Intent</span>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={`text-[10px] font-mono flex items-center gap-1 ${
+                    isIntentsActive
+                      ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/10"
+                      : "border-cyan-500/30 text-cyan-500 bg-cyan-500/10"
+                  }`}
+                >
+                  {isIntentsActive ? (
+                    <>
+                      <CheckCircle2 className="h-3 w-3" />
+                      <span>ACTIVE</span>
+                    </>
+                  ) : (
+                    <span>OPTIONAL</span>
+                  )}
+                </Badge>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Required for dynamic bot presence cycling, live activity tracking, and online member counters.
+              </p>
+            </div>
+          </div>
+
+          {/* Module Locking Safeguard Notice when Bot is NOT Active */}
+          {!isIntentsActive && (
+            <div
+              id="modules-locked-alert"
+              className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-500"
+            >
+              <div className="flex items-center gap-2.5">
+                <Lock className="h-4 w-4 shrink-0 text-amber-500" />
+                <span>
+                  <strong>Modules Locked:</strong> Bot is currently not online. All three Gateway Intents must be enabled in the Discord Developer Portal before modules (Welcome, Moderation, Roles) can be activated.
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                asChild
+                className="shrink-0 text-xs border-amber-500/40 text-amber-500 hover:bg-amber-500/10 font-semibold"
+              >
+                <a href={`/tenants/${tenantId}/guilds/${guildId}/setup`} className="flex items-center gap-1.5">
+                  <span>Configure Bot &amp; Intents</span>
+                  <ArrowRight className="h-3 w-3" />
+                </a>
+              </Button>
             </div>
           )}
         </section>

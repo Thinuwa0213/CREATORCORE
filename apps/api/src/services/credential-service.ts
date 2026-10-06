@@ -585,5 +585,119 @@ export class CredentialService {
 
     return { ok: true };
   }
+
+  /**
+   * Fetches real live channels and roles for a Discord guild using the active bot credentials.
+   */
+  public async fetchGuildDiscordResources(
+    botApplicationId: string,
+    guildId: bigint,
+  ): Promise<{
+    ok: true;
+    data: {
+      guildName: string;
+      channels: { id: string; name: string; type: number; position: number }[];
+      roles: { id: string; name: string; color: string; position: number }[];
+    };
+  } | { ok: false; error: string }> {
+    const credRow = await findActiveCredential(this.db, botApplicationId);
+    if (!credRow) {
+      return { ok: false, error: "NO_ACTIVE_CREDENTIAL" };
+    }
+
+    let plaintext: string;
+    try {
+      plaintext = decryptBotCredential(
+        {
+          ciphertext: Buffer.from(credRow.ciphertext),
+          nonce: Buffer.from(credRow.nonce),
+          authTag: Buffer.from(credRow.authTag),
+          keyVersion: credRow.keyVersion,
+        },
+        {
+          botApplicationId: credRow.botApplicationId,
+          credentialId: credRow.id,
+        },
+        this.keys,
+      );
+    } catch {
+      return { ok: false, error: "DECRYPTION_FAILED" };
+    }
+
+    try {
+      const [guildRes, channelsRes, rolesRes] = await Promise.all([
+        fetch(`https://discord.com/api/v10/guilds/${guildId}`, {
+          headers: { Authorization: `Bot ${plaintext}` },
+        }),
+        fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
+          headers: { Authorization: `Bot ${plaintext}` },
+        }),
+        fetch(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
+          headers: { Authorization: `Bot ${plaintext}` },
+        }),
+      ]);
+
+      let guildName = "Discord Server";
+      if (guildRes.ok) {
+        const gData = (await guildRes.json().catch(() => ({}))) as { name?: string };
+        if (gData.name) guildName = gData.name;
+      }
+
+      let channels: { id: string; name: string; type: number; position: number }[] = [];
+      if (channelsRes.ok) {
+        const cData = (await channelsRes.json().catch(() => [])) as {
+          id: string;
+          name: string;
+          type: number;
+          position: number;
+        }[];
+        if (Array.isArray(cData)) {
+          channels = cData
+            .filter((c) => c.type === 0 || c.type === 5) // Text and announcement channels
+            .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+            .map((c) => ({
+              id: c.id,
+              name: `#${c.name}`,
+              type: c.type,
+              position: c.position ?? 0,
+            }));
+        }
+      }
+
+      let roles: { id: string; name: string; color: number; position: number }[] = [];
+      if (rolesRes.ok) {
+        const rData = (await rolesRes.json().catch(() => [])) as {
+          id: string;
+          name: string;
+          color: number;
+          position: number;
+        }[];
+        if (Array.isArray(rData)) {
+          roles = rData
+            .filter((r) => r.name !== "@everyone")
+            .sort((a, b) => (b.position ?? 0) - (a.position ?? 0)); // Highest role hierarchy first
+        }
+      }
+
+      const formattedRoles = roles.map((r) => ({
+        id: r.id,
+        name: `@${r.name}`,
+        color: r.color ? `#${r.color.toString(16).padStart(6, "0")}` : "#99AAB5",
+        position: r.position ?? 0,
+      }));
+
+      return {
+        ok: true,
+        data: {
+          guildName,
+          channels,
+          roles: formattedRoles,
+        },
+      };
+    } catch (err) {
+      this.logger.warn("discord.fetch_resources_failed", { err });
+      return { ok: false, error: "FETCH_FAILED" };
+    }
+  }
 }
 

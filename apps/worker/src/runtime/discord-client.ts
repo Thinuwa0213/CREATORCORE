@@ -17,15 +17,15 @@ export interface IDiscordClient {
 }
 
 /**
- * Real Discord.js Client implementation with minimal intents (GatewayIntentBits.Guilds).
- * No privileged intents are requested at this foundation phase.
+ * Real Discord.js Client implementation with Guilds and GuildMembers intents.
+ * GuildMembers intent is required for member onboarding, auto-roles, and welcome messages.
  */
 export class RealDiscordClient implements IDiscordClient {
   private client: Client;
 
   constructor() {
     this.client = new Client({
-      intents: [GatewayIntentBits.Guilds],
+      intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
     });
   }
 

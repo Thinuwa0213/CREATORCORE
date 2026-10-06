@@ -11,6 +11,7 @@ import {
   Bot,
   ArrowLeft,
   CheckCircle2,
+  ExternalLink,
 } from "lucide-react";
 import { onboardBotAction, rotateBotCredentialAction } from "../actions";
 import { Input } from "@/components/ui/input";
@@ -356,6 +357,42 @@ export function BotSetupForm({
             <p className="text-[11px] text-muted-foreground">
               Obtain your bot token from the Discord Developer Portal under Bot &gt; Reset Token.
             </p>
+
+            {/* Privileged Gateway Intents Notice */}
+            <div className="mt-3 rounded-lg border border-border/70 bg-muted/40 p-3 space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-foreground">
+                <span className="flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                  Required Gateway Intents
+                </span>
+                <a
+                  href="https://discord.com/developers/applications"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline font-normal"
+                >
+                  <span>Developer Portal</span>
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Make sure all 3 toggles are enabled under <strong>Bot &gt; Privileged Gateway Intents</strong>:
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-0.5 text-[11px]">
+                <div className="flex items-center gap-1.5 text-foreground font-medium">
+                  <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                  <span>Server Members</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-foreground font-medium">
+                  <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                  <span>Message Content</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-foreground font-medium">
+                  <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                  <span>Presence Intent</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="mt-6 flex items-center justify-end gap-3 border-t border-border pt-4">
