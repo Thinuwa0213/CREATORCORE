@@ -16,7 +16,6 @@ import {
   Save,
   ShieldAlert,
   Palette,
-  CheckSquare,
   Loader2,
   AlertCircle,
   AtSign,
@@ -108,7 +107,6 @@ export function WelcomeView({
     initialConfig.autoRoleName || (liveRoles[0]?.name ?? "@Community Member"),
   );
   const [customCanvasCard, setCustomCanvasCard] = useState(initialConfig.customCanvasCard);
-  const [rulesGate, setRulesGate] = useState(initialConfig.rulesGate);
   const [bannerConfig, setBannerConfig] = useState<WelcomeBannerConfig>(initialConfig.bannerConfig);
 
   // Studio modal & save status
@@ -227,7 +225,7 @@ export function WelcomeView({
       autoRoleId,
       autoRoleName,
       customCanvasCard,
-      rulesGate,
+      rulesGate: false,
       bannerConfig,
     };
 
@@ -585,15 +583,15 @@ export function WelcomeView({
             )}
           </Card>
 
-          {/* Section 3: Dynamic Welcome Card & Verification Gate */}
+          {/* Section 3: Dynamic Welcome Card */}
           <Card className="border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <Palette className="h-4 w-4 text-purple-400" />
-                <span>Dynamic Banner Card &amp; Verification</span>
+                <span>Dynamic Welcome Banner Card</span>
               </CardTitle>
               <CardDescription className="text-xs">
-                Enhance onboarding with visual card graphics and rules agreement gates.
+                Enhance onboarding with visual card graphics and personalized artwork.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -640,28 +638,6 @@ export function WelcomeView({
                   </Button>
                 </div>
               )}
-
-              <Separator />
-
-              {/* Rules Verification Gate */}
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-1.5">
-                    <CheckSquare className="h-3.5 w-3.5 text-emerald-400" />
-                    <span className="text-xs font-semibold text-foreground">
-                      Rules Verification Gate
-                    </span>
-                    <Badge variant="outline" className="text-[9px] px-1 py-0 font-mono font-bold">
-                      PRO
-                    </Badge>
-                  </div>
-                  <span className="text-[11px] text-muted-foreground block">
-                    User must click an interactive &quot;Verify &amp; Accept Rules&quot; button before
-                    roles or channels unlock.
-                  </span>
-                </div>
-                <Switch checked={rulesGate} onCheckedChange={setRulesGate} />
-              </div>
             </CardContent>
           </Card>
         </div>
@@ -676,7 +652,7 @@ export function WelcomeView({
             messageText={welcomeMessage}
             sendDm={sendDm}
             customCanvasCard={customCanvasCard}
-            rulesGate={rulesGate}
+            rulesGate={false}
             bannerConfig={bannerConfig}
             onOpenStudio={() => setStudioOpen(true)}
           />
