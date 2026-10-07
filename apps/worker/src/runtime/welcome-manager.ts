@@ -15,6 +15,7 @@ export interface StoredWelcomeConfig {
   message?: string;
   pingUser?: boolean;
   sendDm?: boolean;
+  ignoreBots?: boolean;
   autoRoleEnabled?: boolean;
   autoRoleId?: string;
   autoRoleName?: string;
@@ -122,6 +123,17 @@ export class WelcomeManager {
 
     if (!config.enabled) {
       this.logger.debug?.("welcome-manager: welcome is disabled for guild", { guildId: guild.id });
+      return;
+    }
+
+    // Skip welcome, auto-role, and direct message if member is a bot and ignoreBots is enabled
+    if (config.ignoreBots && member.user?.bot) {
+      this.logger.info("welcome-manager: skipping welcome for bot member as ignoreBots is enabled", {
+        guildId: guild.id,
+        guildName: guild.name,
+        memberId: member.id,
+        botUsername: member.user.username,
+      });
       return;
     }
 

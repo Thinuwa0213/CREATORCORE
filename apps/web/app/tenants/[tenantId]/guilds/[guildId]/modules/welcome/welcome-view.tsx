@@ -20,6 +20,7 @@ import {
   AlertCircle,
   AtSign,
   Send,
+  Bot,
   RefreshCw,
   Radio,
   Lock,
@@ -99,6 +100,7 @@ export function WelcomeView({
   const [welcomeMessage, setWelcomeMessage] = useState(initialConfig.message);
   const [pingUser, setPingUser] = useState(initialConfig.pingUser);
   const [sendDm, setSendDm] = useState(initialConfig.sendDm);
+  const [ignoreBots, setIgnoreBots] = useState(initialConfig.ignoreBots ?? false);
   const [autoRoleEnabled, setAutoRoleEnabled] = useState(initialConfig.autoRoleEnabled);
   const [autoRoleId, setAutoRoleId] = useState(
     initialConfig.autoRoleId || (liveRoles[0]?.id ?? "r-member"),
@@ -221,6 +223,7 @@ export function WelcomeView({
       message: welcomeMessage,
       pingUser,
       sendDm,
+      ignoreBots,
       autoRoleEnabled,
       autoRoleId,
       autoRoleName,
@@ -485,8 +488,8 @@ export function WelcomeView({
 
               <Separator />
 
-              {/* Mention User & Direct Message Toggles */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              {/* Mention User, Direct Message & Ignore Bots Toggles */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                 <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/20">
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-1.5">
@@ -511,6 +514,19 @@ export function WelcomeView({
                     </span>
                   </div>
                   <Switch checked={sendDm} onCheckedChange={setSendDm} />
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/20">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <Bot className="h-3.5 w-3.5 text-amber-400" />
+                      <span className="text-xs font-semibold text-foreground">Ignore Bots</span>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground block">
+                      Skip welcome &amp; roles for bots
+                    </span>
+                  </div>
+                  <Switch checked={ignoreBots} onCheckedChange={setIgnoreBots} />
                 </div>
               </div>
             </CardContent>

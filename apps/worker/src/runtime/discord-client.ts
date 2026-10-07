@@ -25,7 +25,12 @@ export class RealDiscordClient implements IDiscordClient {
 
   constructor() {
     this.client = new Client({
-      intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
+      intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.GuildVoiceStates,
+      ],
     });
   }
 
@@ -58,12 +63,17 @@ export class RealDiscordClient implements IDiscordClient {
 
   /**
    * Registers slash commands with the Discord Application Commands API.
-   * Also seeds connected guilds so commands update immediately in Discord without delay.
+   * Clears global commands to prevent duplicate entries and registers guild-level commands
+   * so they activate and update immediately without Discord global CDN caching delays.
    */
   public async registerCommands(commands: unknown[]): Promise<void> {
     const commandList = commands as ApplicationCommandDataResolvable[];
     if (this.client.application) {
-      await this.client.application.commands.set(commandList);
+      try {
+        await this.client.application.commands.set([]);
+      } catch {
+        // Global cleanup is best effort
+      }
     }
 
     for (const guild of this.client.guilds.cache.values()) {

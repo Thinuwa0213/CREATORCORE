@@ -3,6 +3,13 @@
 import { callApiServer } from "../lib/api";
 import { writeStoredPresence } from "../lib/presence-storage";
 import { writeStoredWelcome } from "../lib/welcome-storage";
+import {
+  writeStoredLevelSettings,
+  readStoredLevelSettings,
+  readStoredGuildUsers,
+  type LevelSettings,
+  type UserXpRecord,
+} from "../lib/levels-storage";
 import type {
   WelcomeConfig,
   LiveDiscordChannel,
@@ -585,4 +592,68 @@ export async function refreshGuildDiscordResourcesAction(
 
   return { ok: false, error: res.error || "Failed to fetch live Discord resources" };
 }
+
+export interface SaveLevelSettingsActionResult {
+  ok: boolean;
+  error?: string;
+  data?: LevelSettings;
+}
+
+/**
+ * Server Action to save Leveling & XP settings (min/max XP, cooldown, announcement channel, role rewards).
+ */
+export async function saveLevelSettingsAction(
+  tenantId: string,
+  guildId: string,
+  data: LevelSettings,
+): Promise<SaveLevelSettingsActionResult> {
+  if (!tenantId || !guildId) {
+    return { ok: false, error: "Missing tenant or guild ID" };
+  }
+
+  try {
+    const saved = await writeStoredLevelSettings(tenantId, guildId, data);
+    return { ok: true, data: saved };
+  } catch (err) {
+    return { ok: false, error: (err as Error)?.message ?? "Failed to save leveling configuration" };
+  }
+}
+
+/**
+ * Server Action to retrieve Leveling & XP settings for a guild.
+ */
+export async function getLevelSettingsAction(
+  tenantId: string,
+  guildId: string,
+): Promise<{ ok: boolean; data?: LevelSettings; error?: string }> {
+  if (!tenantId || !guildId) {
+    return { ok: false, error: "Missing tenant or guild ID" };
+  }
+  try {
+    const data = await readStoredLevelSettings(tenantId, guildId);
+    return { ok: true, data };
+  } catch (err) {
+    return { ok: false, error: (err as Error)?.message ?? "Failed to load leveling configuration" };
+  }
+}
+
+/**
+ * Server Action to retrieve the current leaderboard for a guild.
+ */
+export async function getLevelLeaderboardAction(
+  tenantId: string,
+  guildId: string,
+): Promise<{ ok: boolean; data: UserXpRecord[]; error?: string }> {
+  if (!tenantId || !guildId) {
+    return { ok: false, data: [], error: "Missing tenant or guild ID" };
+  }
+  try {
+    const users = await readStoredGuildUsers(tenantId, guildId);
+    users.sort((a, b) => b.xp - a.xp);
+    return { ok: true, data: users };
+  } catch (err) {
+    return { ok: false, data: [], error: (err as Error)?.message ?? "Failed to load leaderboard" };
+  }
+}
+
 

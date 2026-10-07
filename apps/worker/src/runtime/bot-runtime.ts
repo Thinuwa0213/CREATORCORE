@@ -4,6 +4,7 @@ import type { IDiscordClient } from "./discord-client.js";
 import { type CommandRegistry, createDefaultCommandRegistry } from "../commands/index.js";
 import { PresenceManager } from "./presence-manager.js";
 import { WelcomeManager } from "./welcome-manager.js";
+import { XpManager } from "./xp-manager.js";
 
 export interface BotRuntimeOptions {
   botApplicationId: string;
@@ -42,6 +43,7 @@ export class BotRuntime {
   private invalidatedListener?: (() => void) | undefined;
   private presenceManager?: PresenceManager | undefined;
   private welcomeManager?: WelcomeManager | undefined;
+  private xpManager?: XpManager | undefined;
   private connected = false;
 
   constructor(options: BotRuntimeOptions) {
@@ -148,6 +150,9 @@ export class BotRuntime {
         this.welcomeManager = new WelcomeManager(client, this.logger);
         void this.welcomeManager.start();
 
+        this.xpManager = new XpManager(client, this.logger);
+        void this.xpManager.start();
+
         this.logger.info("bot runtime connected and ready", {
           botApplicationId: this.botApplicationId,
           credentialId: this.credentialId,
@@ -210,6 +215,10 @@ export class BotRuntime {
     if (this.welcomeManager) {
       this.welcomeManager.stop();
       this.welcomeManager = undefined;
+    }
+    if (this.xpManager) {
+      this.xpManager.stop();
+      this.xpManager = undefined;
     }
     if (this.client) {
       if (this.interactionListener) {

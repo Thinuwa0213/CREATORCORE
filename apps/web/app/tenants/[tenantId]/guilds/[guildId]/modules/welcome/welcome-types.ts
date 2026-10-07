@@ -90,6 +90,7 @@ export interface WelcomeConfig {
   message: string;
   pingUser: boolean;
   sendDm: boolean;
+  ignoreBots: boolean;
   autoRoleEnabled: boolean;
   autoRoleId: string;
   autoRoleName: string;
@@ -143,6 +144,7 @@ export const DEFAULT_WELCOME_CONFIG: WelcomeConfig = {
   message: "Welcome to **{server}**, {user}! You are our **#{memberCount}** member. Check out #rules to get started! 🚀",
   pingUser: true,
   sendDm: false,
+  ignoreBots: false,
   autoRoleEnabled: true,
   autoRoleId: "r-member",
   autoRoleName: "@Community Member",
